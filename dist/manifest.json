@@ -1,0 +1,94 @@
+{
+	"name": "providers",
+	"author": "",
+	"providers": {
+		"ip": {
+			"name": "Ipadress Checker",
+			"version": "1.0.0",
+			"active": true,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie", "channel"],
+			"priority": 100,
+			"dir": "providers/debug"
+		},
+		"ekola405gmt": {
+			"name": "Ekola405gmt",
+			"version": "1.0.0",
+			"active": true,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"autoembed": {
+			"name": "AutoEmbed",
+			"version": "1.0.0",
+			"active": true,
+			"language": ["en", "fr", "es"],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"9filmyzilla": {
+			"name": "9filmyzilla",
+			"version": "1.0.0",
+			"active": true,
+			"language": ["en", "es"],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/en"
+		},
+		"primewire": {
+			"name": "Primewire",
+			"version": "1.0.0",
+			"active": true,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/en"
+		},
+		"repelishd": {
+			"name": "Repelishd",
+			"version": "1.0.0",
+			"active": true,
+			"language": ["es", "en", "fr"],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/es"
+		},
+		"lamovie": {
+			"name": "Lamovie",
+			"version": "1.0.0",
+			"active": true,
+			"language": "es",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/es"
+		},
+		"wyziesubs": {
+			"name": "Wyziesubs",
+			"version": "1.0.0",
+			"active": true,
+			"language": "*",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/subtitle"
+		}
+	}
+}

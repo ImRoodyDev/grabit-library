@@ -1,0 +1,19 @@
+{
+	"name": "grabit-library",
+	"version": "1.0.0",
+	"description": "Provider library that uses grabit-engine to scrape websites and extract multilingual streaming sources (movies, series, and live TV).",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "CC-BY-NC-4.0",
+	"type": "commonjs",
+	"devDependencies": {
+		"esbuild": "^0.27.3",
+		"typescript": "^5.9.3"
+	},
+	"dependencies": {
+		"grabit-engine": "file:../grabit-engine/grabit-engine-1.0.0.tgz"
+	}
+}
