@@ -20,9 +20,9 @@ Provider library that uses [grabit-engine](../grabit-engine) to scrape websites 
 
 ## Getting Started
 
-```bash
-npm install
-```
+This library is used together with **grabit-engine**. For setup and usage instructions, see the engine documentation:
+
+👉 [grabit-engine README (beta-v1)](https://github.com/ImRoodyDev/grabit-engine/blob/beta-v1/README.md)
 
 ## Disclaimer
 
