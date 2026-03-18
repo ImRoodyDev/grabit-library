@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AUTO-GENERATED — Do not edit manually                      ║
-// ║  Provider: subtitle/wyziesubs                              ║
+// ║  Provider: repelishd                                       ║
 // ║  Bundled with esbuild — npx bundle-provider                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -11,10 +11,10 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
 
-// node_modules/grabit-engine/dist/src/core/cheerio.js
+// node_modules/grabit-engine/dist/esm/src/core/cheerio.js
 import * as cheerio from "cheerio";
 
-// node_modules/grabit-engine/dist/src/types/models/Provider.js
+// node_modules/grabit-engine/dist/esm/src/types/models/Provider.js
 var EProviderQueryKey;
 (function(EProviderQueryKey2) {
   EProviderQueryKey2[EProviderQueryKey2["id"] = 0] = "id";
@@ -29,16 +29,207 @@ var EProviderQueryKey;
   EProviderQueryKey2[EProviderQueryKey2["ep_imdb"] = 9] = "ep_imdb";
 })(EProviderQueryKey || (EProviderQueryKey = {}));
 
-// node_modules/grabit-engine/dist/src/types/input/Media.js
+// node_modules/grabit-engine/dist/esm/src/types/input/Media.js
 var MEDIA_TYPES = ["movie", "serie", "channel"];
 
-// node_modules/grabit-engine/dist/src/utils/extractor.js
+// node_modules/grabit-engine/dist/esm/src/utils/extractor.js
+var FUNCTIONJSON_REGEX = /\b(new\s+)?[a-zA-Z_$][\w$]*\s*\(/m;
+var QUOTE_UNQUOTED_REGEX = /([{,]\s*)([a-zA-Z0-9_$]+)\s*:/g;
+var SINGLE_TO_DOUBLE_QUOTES_REGEX = /'/g;
+var TRAILING_COMMA_REGEX = /,\s*([}\]])/g;
+var EVAL_CODE = /eval\s*\(/;
+var JS_ESCAPED_SINGLE_QUOTE_REGEX = /\\'/g;
+var SCALAR_VALUE_REGEX = /^(-?[\d.]+(?:e[+-]?\d+)?|true|false|null|undefined)/;
+var TERNARY_EXPR_REGEX = /(:\s*)[a-zA-Z_$][\w$]*\s*\?\s*(?:'[^']*'|"[^"]*"|\w+)\s*:\s*(?:'[^']*'|"[^"]*"|\w+)/g;
+var ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g;
 function extractExtension(url) {
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
   return match ? match[1] : null;
 }
+function extractEvalCode(source) {
+  const match = EVAL_CODE.exec(source);
+  if (!match)
+    return null;
+  const parenStart = match.index + match[0].length - 1;
+  const enclosed = extractEnclosedContent(source, parenStart, "(", ")");
+  if (!enclosed)
+    return null;
+  return source.slice(match.index, parenStart) + enclosed;
+}
+function extractContructorJSONArguments(codeString) {
+  const callMatch = codeString.match(FUNCTIONJSON_REGEX);
+  if (!callMatch)
+    return null;
+  const startIndex = callMatch.index + callMatch[0].lastIndexOf("(");
+  const argsString = extractParenthesisContent(codeString, startIndex);
+  if (!argsString)
+    return null;
+  return parseArgString(argsString);
+}
+function extractVariableValue(source, varName) {
+  const escaped = escapeRegex(varName);
+  const patterns = [new RegExp(`(?:var|let|const)\\s+${escaped}\\s*=\\s*`, "m"), new RegExp(`(?<![\\w$])${escaped}\\s*=(?![=>])\\s*`, "m")];
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    if (!match || match.index === void 0)
+      continue;
+    const afterAssign = source.slice(match.index + match[0].length).trimStart();
+    const value = parseScalarValue(afterAssign);
+    if (value !== null)
+      return value;
+  }
+  return null;
+}
+function extractParenthesisContent(str, startIndex) {
+  const inner = extractEnclosedContent(str, startIndex, "(", ")");
+  if (!inner)
+    return null;
+  return inner.slice(1, -1);
+}
+function extractEnclosedContent(str, startIndex, open, close) {
+  let depth = 0;
+  let contentStart = -1;
+  for (let i = startIndex; i < str.length; i++) {
+    const char = str[i];
+    if (char === open) {
+      depth++;
+      if (depth === 1)
+        contentStart = i;
+    } else if (char === close) {
+      depth--;
+      if (depth === 0)
+        return str.slice(contentStart, i + 1);
+    }
+  }
+  return null;
+}
+function stripJSComments(src) {
+  const parts = [];
+  let i = 0;
+  let sliceStart = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const quote = ch;
+      let j = i + 1;
+      while (j < src.length) {
+        if (src[j] === "\\") {
+          j += 2;
+          continue;
+        }
+        if (src[j] === quote) {
+          j++;
+          break;
+        }
+        j++;
+      }
+      i = j;
+      continue;
+    }
+    if (ch === "/" && src[i + 1] === "/") {
+      if (i > sliceStart)
+        parts.push(src.slice(sliceStart, i));
+      let j = i + 2;
+      while (j < src.length && src[j] !== "\n" && src[j] !== "\r") {
+        j++;
+      }
+      i = j;
+      sliceStart = j;
+      continue;
+    }
+    if (ch === "/" && src[i + 1] === "*") {
+      if (i > sliceStart)
+        parts.push(src.slice(sliceStart, i));
+      let j = i + 2;
+      while (j + 1 < src.length && !(src[j] === "*" && src[j + 1] === "/")) {
+        j++;
+      }
+      i = j + 2;
+      sliceStart = i;
+      continue;
+    }
+    i++;
+  }
+  if (sliceStart === 0)
+    return src;
+  if (sliceStart < src.length)
+    parts.push(src.slice(sliceStart));
+  return parts.join("");
+}
+function parseArgString(argsString) {
+  const trimmed = argsString.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const jsonSafe = stripJSComments(trimmed).replace(JS_ESCAPED_SINGLE_QUOTE_REGEX, "'").replace(new RegExp(TERNARY_EXPR_REGEX.source, TERNARY_EXPR_REGEX.flags), "$1null").replace(new RegExp(QUOTE_UNQUOTED_REGEX.source, QUOTE_UNQUOTED_REGEX.flags), '$1"$2":').replace(SINGLE_TO_DOUBLE_QUOTES_REGEX, '"').replace(new RegExp(TRAILING_COMMA_REGEX.source, TRAILING_COMMA_REGEX.flags), "$1");
+      return JSON.parse(jsonSafe);
+    } catch {
+      return { 0: trimmed };
+    }
+  }
+  if (trimmed.startsWith("function") || trimmed.includes("=>")) {
+    return { 0: trimmed };
+  }
+  const args = splitArguments(trimmed);
+  const result = {};
+  args.forEach((arg, index) => {
+    result[index] = arg.trim();
+  });
+  return result;
+}
+function parseScalarValue(src) {
+  const first = src[0];
+  if (first === "'") {
+    const end = findQuoteEnd(src, 1, "'");
+    return end === -1 ? null : src.slice(1, end);
+  }
+  if (first === '"') {
+    const end = findQuoteEnd(src, 1, '"');
+    return end === -1 ? null : src.slice(1, end);
+  }
+  if (first === "`") {
+    const end = findQuoteEnd(src, 1, "`");
+    return end === -1 ? null : src.slice(1, end);
+  }
+  const primitiveMatch = src.match(SCALAR_VALUE_REGEX);
+  if (primitiveMatch)
+    return primitiveMatch[1];
+  return null;
+}
+function findQuoteEnd(str, start, quote) {
+  for (let i = start; i < str.length; i++) {
+    if (str[i] === "\\") {
+      i++;
+      continue;
+    }
+    if (str[i] === quote)
+      return i;
+  }
+  return -1;
+}
+function escapeRegex(str) {
+  return str.replace(ESCAPE_REGEX, "\\$&");
+}
+function splitArguments(str) {
+  const result = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    if (char === "{" || char === "(" || char === "[")
+      depth++;
+    else if (char === "}" || char === ")" || char === "]")
+      depth--;
+    else if (char === "," && depth === 0) {
+      result.push(str.slice(start, i));
+      start = i + 1;
+    }
+  }
+  if (start < str.length)
+    result.push(str.slice(start));
+  return result;
+}
 
-// node_modules/grabit-engine/dist/src/utils/logger.js
+// node_modules/grabit-engine/dist/esm/src/utils/logger.js
 var DebugLogger = class {
   isProduction = false;
   timestamp = false;
@@ -144,13 +335,12 @@ var DebugLogger = class {
 };
 var _Logger = new DebugLogger(false, "GRABIT-ENGINE");
 
-// node_modules/grabit-engine/dist/src/utils/standard.js
+// node_modules/grabit-engine/dist/esm/src/utils/standard.js
 var isDevelopment = () => typeof process !== "undefined" && process.env?.ENV !== "production";
 var isNode = () => typeof process !== "undefined" && process.versions != null && process.versions.node != null;
 var isBrowser = () => typeof window !== "undefined" && typeof window.document !== "undefined";
 var sanitizeMessage = (value) => value.replace(/\\"/g, '"').replace(/"/g, "").replace(/\s+/g, " ").trim();
 var minutesToMilliseconds = (minutes) => minutes * 60 * 1e3;
-var secondsToMilliseconds = (seconds) => seconds * 1e3;
 function normalizeHeaders(headers) {
   const seen = /* @__PURE__ */ new Map();
   const result = {};
@@ -177,7 +367,7 @@ function deduplicateArray(array) {
   return Array.from(new Set(array));
 }
 
-// node_modules/grabit-engine/dist/src/types/ProcessError.js
+// node_modules/grabit-engine/dist/esm/src/types/ProcessError.js
 var ProcessError = class _ProcessError extends Error {
   /** Unique error code identifier (e.g., 'VALIDATION_ERROR', 'NOT_FOUND') */
   code;
@@ -203,7 +393,7 @@ var ProcessError = class _ProcessError extends Error {
 };
 var isProcessError = (error) => error instanceof ProcessError;
 
-// node_modules/grabit-engine/dist/src/types/HttpError.js
+// node_modules/grabit-engine/dist/esm/src/types/HttpError.js
 var HttpError = class _HttpError extends Error {
   /** Unique error code identifier (e.g., 'VALIDATION_ERROR', 'NOT_FOUND') */
   code;
@@ -241,10 +431,57 @@ var HttpError = class _HttpError extends Error {
 };
 var isHttpError = (error) => error instanceof HttpError;
 
-// node_modules/grabit-engine/dist/src/utils/similarity.js
+// node_modules/grabit-engine/dist/esm/src/utils/similarity.js
 import ParseDuration from "parse-duration";
+function calculateMatchScore(criteria, media) {
+  let score = 0;
+  if (media.type == "channel")
+    return cosineSimilarity(media.channelName, criteria.title || "") * 100;
+  if (media.title && criteria.title) {
+    const distance = cosineSimilarity(media.title, criteria.title);
+    const distances = media.localizedTitles.map((t) => cosineSimilarity(t, criteria.title) ?? 0);
+    score += Math.max(distance, ...distances) * 100;
+  }
+  if (media.releaseYear && criteria.year && media.releaseYear.toString() === criteria.year) {
+    score += 50;
+  }
+  if (media.duration && criteria.duration) {
+    const parsed = ParseDuration(criteria.duration) ?? 0 / 6e4;
+    const diff = Math.abs(media.duration - parsed);
+    score += 20 - Math.min(diff, 20);
+  }
+  return score;
+}
+function cosineSimilarity(a, b) {
+  const vecA = buildVector(a);
+  const vecB = buildVector(b);
+  const allWords = /* @__PURE__ */ new Set([...vecA.keys(), ...vecB.keys()]);
+  let dotProduct = 0;
+  let magnitudeA = 0;
+  let magnitudeB = 0;
+  for (const word of allWords) {
+    const valA = vecA.get(word) || 0;
+    const valB = vecB.get(word) || 0;
+    dotProduct += valA * valB;
+    magnitudeA += valA * valA;
+    magnitudeB += valB * valB;
+  }
+  magnitudeA = Math.sqrt(magnitudeA);
+  magnitudeB = Math.sqrt(magnitudeB);
+  if (magnitudeA === 0 || magnitudeB === 0)
+    return 0;
+  return dotProduct / (magnitudeA * magnitudeB);
+}
+function buildVector(text) {
+  const words = text.toLowerCase().split(/\W+/).filter(Boolean);
+  const freq = /* @__PURE__ */ new Map();
+  for (const word of words) {
+    freq.set(word, (freq.get(word) || 0) + 1);
+  }
+  return freq;
+}
 
-// node_modules/grabit-engine/dist/src/services/crypto.js
+// node_modules/grabit-engine/dist/esm/src/services/crypto.js
 import Crypto from "crypto";
 if (typeof globalThis.atob === "undefined" || typeof globalThis.btoa === "undefined") {
   try {
@@ -259,7 +496,7 @@ if (typeof globalThis.atob === "undefined" || typeof globalThis.btoa === "undefi
   }
 }
 
-// node_modules/grabit-engine/dist/src/services/cache.js
+// node_modules/grabit-engine/dist/esm/src/services/cache.js
 var Cache = class {
   storage = /* @__PURE__ */ new Map();
   autoCleanupInterval = null;
@@ -364,7 +601,7 @@ var Cache = class {
 };
 var CACHE = new Cache();
 
-// node_modules/grabit-engine/dist/src/services/fetcher.js
+// node_modules/grabit-engine/dist/esm/src/services/fetcher.js
 var _resolvedFetch = null;
 var _resolvedImpitClass = null;
 async function resolveImpitClass() {
@@ -511,9 +748,9 @@ async function appFetch(request, options = {}) {
   };
   const response = await fetch(request, mergedOptions);
   if (cacheKey && cacheTTL && response.ok) {
-    serializeResponse(response).then((serialized) => {
-      CACHE.set(cacheKey, serialized, cacheTTL);
-    });
+    const serialized = await serializeResponse(response);
+    CACHE.set(cacheKey, serialized, cacheTTL);
+    return reconstructResponse(serialized);
   }
   return response;
 }
@@ -522,10 +759,10 @@ async function fetchResponse(request, options) {
   return handleResponse(requestResponse);
 }
 
-// node_modules/grabit-engine/dist/src/controllers/manager.js
+// node_modules/grabit-engine/dist/esm/src/controllers/manager.js
 import pLimit from "p-limit";
 
-// node_modules/grabit-engine/dist/src/utils/path.js
+// node_modules/grabit-engine/dist/esm/src/utils/path.js
 var SFPattern = /\{\s*(\w+)\s*:\s*(\d+|string|uri|form-uri)\s*\}/g;
 var NON_DIGIT_PATTERN = /\D/g;
 var REPLACE_URI_SPACE_PATTERN = /%20/g;
@@ -602,7 +839,7 @@ function pathJoin(...parts) {
   }).filter((part) => part.length > 0).join("/");
 }
 
-// node_modules/grabit-engine/dist/src/utils/validator.js
+// node_modules/grabit-engine/dist/esm/src/utils/validator.js
 import { isURL } from "validator";
 var SCHEME_REGEX = /^[a-z][a-z0-9._-]*$/;
 var VERSION_REGEX = /^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$/;
@@ -747,7 +984,7 @@ function validateManifestConfiguration(provider, manifest) {
   }
 }
 
-// node_modules/grabit-engine/dist/src/services/github.js
+// node_modules/grabit-engine/dist/esm/src/services/github.js
 var GithubService;
 (function(GithubService2) {
   const GITHUB_REGEX = [/^https?:\/\/github\.com\/([^/]+)\/([^/.]+)(\.git)?$/, /^github\.com\/([^/]+)\/([^/.]+)(\.git)?$/, /^([^/]+)\/([^/]+)$/];
@@ -861,16 +1098,28 @@ var GithubService;
     const modules = {};
     for (const [scheme, manifest] of Object.entries(providers)) {
       let sourceCode;
+      const fetchPath = `${pathJoin(manifest.dir, scheme)}/index.js`;
+      const fullApiUrl = `https://api.github.com/repos/${opts.owner}/${opts.repo}/contents/${opts.rootDir}${fetchPath}?ref=${opts.branch}`;
       try {
-        sourceCode = await fetchFileFromGitHub(opts, `${pathJoin(manifest.dir, scheme)}/index.js`);
+        sourceCode = await fetchFileFromGitHub(opts, fetchPath);
       } catch (error) {
+        _Logger.error(`[GithubService] Failed to fetch source for provider "${scheme}":
+  URL: ${fullApiUrl}
+  rootDir: "${opts.rootDir || "(none)"}"
+  manifest.dir: "${manifest.dir ?? "(none)"}"
+  Error: ${error instanceof Error ? error.message : error}`);
         modules[scheme] = null;
         continue;
       }
-      if (moduleResolver) {
-        modules[scheme] = await moduleResolver(scheme, sourceCode);
-      } else if (isNode()) {
-        modules[scheme] = await defaultNodeResolver(scheme, sourceCode);
+      try {
+        if (moduleResolver) {
+          modules[scheme] = await moduleResolver(scheme, sourceCode);
+        } else if (isNode()) {
+          modules[scheme] = await defaultNodeResolver(scheme, sourceCode);
+        }
+      } catch (error) {
+        _Logger.error(`[GithubService] Failed to resolve module for provider "${scheme}": ${error instanceof Error ? error.message : error}`);
+        modules[scheme] = null;
       }
     }
     return modules;
@@ -900,7 +1149,7 @@ var GithubService;
   }
 })(GithubService || (GithubService = {}));
 
-// node_modules/grabit-engine/dist/src/services/registry.js
+// node_modules/grabit-engine/dist/esm/src/services/registry.js
 var RegistryService;
 (function(RegistryService2) {
   async function initializeProviders(source) {
@@ -934,7 +1183,7 @@ var RegistryService;
   RegistryService2.getManifest = getManifest;
 })(RegistryService || (RegistryService = {}));
 
-// node_modules/grabit-engine/dist/src/services/require.js
+// node_modules/grabit-engine/dist/esm/src/services/require.js
 var RequireService;
 (function(RequireService2) {
   async function initializeProviders(source) {
@@ -964,7 +1213,7 @@ var RequireService;
   RequireService2.getManifest = getManifest;
 })(RequireService || (RequireService = {}));
 
-// node_modules/grabit-engine/dist/src/services/tmdb.js
+// node_modules/grabit-engine/dist/esm/src/services/tmdb.js
 var TMDB;
 (function(TMDB2) {
   const API_BASE_URL = "https://api.themoviedb.org/3";
@@ -1105,7 +1354,8 @@ error: ${error.message}`);
   TMDB2.createRequesterMedia = createRequesterMedia;
 })(TMDB || (TMDB = {}));
 
-// node_modules/grabit-engine/dist/src/controllers/provider.js
+// node_modules/grabit-engine/dist/esm/src/controllers/provider.js
+import { default as ISO6391 } from "iso-639-1";
 function defineProviderModule(_this, manifest, workers) {
   return {
     meta: manifest,
@@ -1133,7 +1383,7 @@ function createModuleWorkers(provider, manifest, workers) {
               })
             },
             format,
-            fileName: `[${manifest.name}][${format.toUpperCase()}] - ${default2.getName(source.language)} - ${source.fileName ?? "Source"} `,
+            fileName: `[${manifest.name}][${format.toUpperCase()}] - ${ISO6391.getName(source.language)} - ${source.fileName ?? "Source"} `,
             providerName: manifest.name,
             scheme: provider.config.scheme
           };
@@ -1200,12 +1450,9 @@ async function validateSubtitleSources(sources, requester, context) {
   });
 }
 
-// node_modules/grabit-engine/dist/src/services/unpacker.js
+// node_modules/grabit-engine/dist/esm/src/services/unpacker.js
 var UNPACK_LOOKUP = /\b\w+\b/g;
 var JUICERS = [/}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'\.split\('\|'\), *(\d+), *(.*)\)\)/, /}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'\.split\('\|'\)/];
-function detectPacked(source) {
-  return source.replace(" ", "").startsWith("eval(function(p,a,c,k,e,");
-}
 function unpackV2(source) {
   let { payload, symtab, radix, count } = _filterargs(source);
   if (count != symtab.length) {
@@ -1274,46 +1521,6 @@ function unpackV2(source) {
     return source2;
   }
 }
-function disabled_unpackV1(code) {
-  function indent(codeLines) {
-    try {
-      var tabs = 0, old = -1, add = "";
-      for (var i = 0; i < codeLines.length; i++) {
-        if (codeLines[i].indexOf("{") != -1)
-          tabs++;
-        if (codeLines[i].indexOf("}") != -1)
-          tabs--;
-        if (old != tabs) {
-          old = tabs;
-          add = "";
-          while (old > 0) {
-            add += "	";
-            old--;
-          }
-          old = tabs;
-        }
-        codeLines[i] = add + codeLines[i];
-      }
-    } finally {
-      tabs = null;
-      old = null;
-      add = null;
-    }
-    return codeLines;
-  }
-  var env = {
-    eval: function(c) {
-      code = c;
-    },
-    window: {},
-    document: {}
-  };
-  eval("with(env) {" + code + "}");
-  var codeWithNewLines = (code + "").replace(/;/g, ";\n").replace(/{/g, "\n{\n").replace(/}/g, "\n}\n").replace(/\n;\n/g, ";\n").replace(/\n\n/g, "\n");
-  var splitLines = codeWithNewLines.split("\n");
-  splitLines = indent(splitLines);
-  return splitLines.join("\n");
-}
 var Unbaser = class {
   ALPHABET = {
     62: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -1355,10 +1562,10 @@ var Unbaser = class {
   }
 };
 
-// node_modules/grabit-engine/dist/src/services/tldts.js
+// node_modules/grabit-engine/dist/esm/src/services/tldts.js
 import * as _tldts from "tldts";
 
-// node_modules/grabit-engine/dist/src/models/provider.js
+// node_modules/grabit-engine/dist/esm/src/models/provider.js
 function normalizeLanguages(language) {
   return Array.isArray(language) ? language : [language];
 }
@@ -1613,13 +1820,7 @@ var Provider = class _Provider {
   }
 };
 
-// node_modules/grabit-engine/dist/src/hooks/useManager.js
-import { useEffect, useRef, useState } from "react";
-
-// node_modules/grabit-engine/dist/src/hooks/useScraper.js
-import { useCallback, useEffect as useEffect2, useRef as useRef2, useState as useState2 } from "react";
-
-// node_modules/grabit-engine/dist/src/index.js
+// node_modules/grabit-engine/dist/esm/src/index.node.js
 import { default as default2 } from "iso-639-1";
 
 // manifest.json
@@ -1718,87 +1919,536 @@ var manifest_default = {
   }
 };
 
-// providers/subtitle/wyziesubs/config.ts
+// providers/media/es/repelishd/config.ts
 var config = {
-  scheme: "wyziesubs",
-  name: "Wyziesubs",
-  language: "*",
-  baseUrl: "https://sub.wyzie.ru",
+  scheme: "repelishd",
+  name: "Repelishd",
+  language: "es",
+  baseUrl: "https://repelishd.run",
   entries: {
     movie: {
-      endpoint: "/search?id={id:string}&format=srt"
+      endpoint: "?story={id:string}&do=search&subaction=search"
     },
     serie: {
-      endpoint: "/search?id={id:string}&season={season:1}&episode={episode:1}&format=srt"
+      endpoint: "?story={id:string}&do=search&subaction=search"
     }
   },
   mediaIds: ["imdb", "tmdb"],
-  contentAreCORSProtected: true
+  contentAreCORSProtected: false
+};
+var locators = {
+  $results: ".items > article.item",
+  $result_entry: "a",
+  $result_title: ".data h3 a",
+  $result_year: ".data span"
 };
 var PROVIDER = Provider.create(config);
 
-// providers/subtitle/wyziesubs/subtitle.ts
-async function getSubtitles(requester, ctx) {
-  if (requester.media.type === "channel") return [];
-  const subSources = ["subdl", "subf2m", "opensubtitles", "podnapisi", "animetosho", "gestdown"];
-  let urls = deduplicateArray([
-    PROVIDER.createResourceURL(requester),
-    new URL(
-      PROVIDER.createPatternString(
-        requester.media.type === "movie" ? "/search?id={tmdb:string}&format=srt" : "/search?id={tmdb:string}&season={season:1}&episode={episode:1}&format=srt",
-        requester.media
-      ),
-      PROVIDER.config.baseUrl
-    )
-  ]);
-  urls = urls.flatMap(
-    (url) => subSources.map((source) => {
-      const newUrl = new URL(url.href);
-      newUrl.searchParams.set("source", source);
-      return newUrl;
-    })
-  );
-  const subtitleResults = [];
-  for (const [i, url] of urls.entries()) {
-    ctx.log.info(`Attempting to fetch subtitles from URL ${i + 1}/${urls.length}: ${url.href}`);
-    try {
-      const subtitles = await ctx.xhr.fetchResponse(
-        url,
-        {
-          method: "GET",
-          attachUserAgent: true,
-          timeout: secondsToMilliseconds(3)
-        },
-        requester
-      );
-      if (subtitles && subtitles.length > 0) {
-        ctx.log.info(`Successfully fetched ${subtitles.length} subtitles from URL ${url.href}`);
-        subtitleResults.push(...subtitles);
-      } else {
-        ctx.log.warn(`No subtitles found at URL ${url.href}`);
-      }
-      if (subtitleResults.length > 0) break;
-    } catch (error) {
-      ctx.log.error(`Failed to fetch subtitles from URL ${url.href}: ${error.message}`);
-      continue;
-    }
+// providers/extractors/mixdrop.ts
+async function extractMixdropStream(embedURL, requestOpts, ctx, meta) {
+  const id = embedURL.pathname.split("/").filter(Boolean).pop();
+  embedURL.pathname = `/e/${id}`;
+  ctx.log.debug(`[mixdrop] Loading embed page: ${embedURL.href}`);
+  const iframeHeaders = {
+    ...requestOpts.extraHeaders ?? {},
+    accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "accept-language": "en-US,en;q=0.9,es;q=0.8",
+    "sec-fetch-dest": "iframe",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-site": "cross-site",
+    "sec-fetch-storage-access": "active",
+    "sec-fetch-user": "?1",
+    "upgrade-insecure-requests": "1",
+    cookie: void 0
+    // Ensure cookies are not sent with the request
+  };
+  const iframeOpts = {
+    ...requestOpts,
+    followRedirects: true,
+    extraHeaders: iframeHeaders
+  };
+  const mixdropPage = await ctx.cheerio.load(embedURL, iframeOpts, ctx.xhr);
+  const pageTitle = mixdropPage.$(".title a").text().trim();
+  ctx.log.debug(`[mixdrop] Page title: ${pageTitle}`);
+  const scriptContent = mixdropPage.$('script:contains("MDCore")')?.html();
+  if (!scriptContent || scriptContent.trim() === "") {
+    ctx.log.warn("[mixdrop] No MDCore script found on the page.");
+    return null;
   }
-  return subtitleResults.map((subtitle) => ({
-    fileName: subtitle.fileName,
-    url: subtitle.url,
-    language: subtitle.language,
-    format: subtitle.format,
-    languageName: subtitle.display,
+  const packedCode = extractEvalCode(scriptContent);
+  if (!packedCode) {
+    ctx.log.warn("[mixdrop] No eval-packed code found in MDCore script.");
+    return null;
+  }
+  const unpackedCode = unpackV2(packedCode);
+  ctx.log.info(`[mixdrop] Unpacked code (${unpackedCode.length} chars)`);
+  let videoSource = extractVariableValue(unpackedCode, "MDCore.wurl");
+  if (!videoSource) {
+    ctx.log.warn("[mixdrop] MDCore.wurl not found in unpacked code.");
+    return null;
+  }
+  ctx.log.info(`[mixdrop] Resolved video URL: ${videoSource}`);
+  return {
+    fileName: `[Mixdrop] ${meta.fileName ?? pageTitle ?? "Video"}`,
+    playlist: videoSource,
+    language: meta.language,
     xhr: {
       haveCorsPolicy: true,
-      headers: {}
+      headers: iframeHeaders
     }
-  }));
+  };
 }
 
-// providers/subtitle/wyziesubs/index.ts
-var index_default = defineProviderModule(PROVIDER, manifest_default.providers["wyziesubs"], {
-  getSubtitles
+// providers/extractors/doodstream.ts
+var ALPHANUMERIC = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+var PASS_MD5_REGEX = /\/pass_md5\/([\w-]+)\/([\w]+)/;
+function makePlay(token) {
+  let randomStr = "";
+  for (let i = 0; i < 10; i++) {
+    randomStr += ALPHANUMERIC.charAt(Math.floor(Math.random() * ALPHANUMERIC.length));
+  }
+  return `${randomStr}?token=${token}&expiry=${Date.now()}`;
+}
+async function extractDoodstreamStreams(embedURL, requestOpts, ctx, meta) {
+  const id = embedURL.pathname.split("/").filter(Boolean).pop();
+  embedURL.hostname = "myvidplay.com";
+  const resourceURL = new URL(`/e/${id}`, embedURL.origin);
+  ctx.log.debug(`[doodstream] Loading embed page: ${resourceURL.href}`);
+  const opts = {
+    ...requestOpts,
+    extraHeaders: {
+      ...requestOpts.extraHeaders ?? {},
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "accept-language": "en-US,en;q=0.9,es;q=0.8",
+      "sec-fetch-dest": "iframe",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-storage-access": "active",
+      "sec-fetch-user": "?1",
+      "upgrade-insecure-requests": "1",
+      cookie: void 0,
+      // Ensure cookies are not sent with the request
+      referer: requestOpts.extraHeaders?.referer ?? embedURL.origin
+      // Ensure referer is set for the initial page load
+    }
+  };
+  const page = await ctx.cheerio.load(resourceURL, opts, ctx.xhr);
+  ctx.log.debug(`[doodstream] Page loaded, searching for pass_md5 pattern...`);
+  const pageTitle = page.$("title").text().trim();
+  const match = page.$.html()?.match(PASS_MD5_REGEX);
+  if (!match) {
+    ctx.log.warn("[doodstream] No pass_md5 pattern found in embed page.");
+    return null;
+  }
+  const passMd5Path = match[0];
+  const hash = match[1];
+  const token = match[2];
+  ctx.log.debug(`[doodstream] Extracted hash: ${hash}, token: ${token}`);
+  const md5URL = new URL(passMd5Path, resourceURL.origin);
+  ctx.log.debug(`[doodstream] Fetching pass_md5 URL: ${md5URL.href}`);
+  const responseData = await ctx.xhr.fetchResponse(
+    md5URL,
+    {
+      attachUserAgent: true,
+      method: "GET",
+      headers: {
+        accept: "*/*",
+        "accept-language": "en-US,en;q=0.9,es;q=0.8",
+        "cache-control": "no-cache",
+        pragma: "no-cache",
+        priority: "u=1, i",
+        "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
+        "x-requested-with": "XMLHttpRequest",
+        cookie: "lang=1; dref_url=none",
+        Referer: resourceURL.href
+      }
+    },
+    requestOpts
+  );
+  if (!responseData) {
+    ctx.log.warn("[doodstream] No response data received from pass_md5 endpoint.");
+    return null;
+  }
+  const suffix = makePlay(token);
+  const videoUrl = responseData + suffix;
+  ctx.log.debug(`[doodstream] Constructed video URL: ${videoUrl}`);
+  return {
+    fileName: `[Doodstream] ${meta.fileName ?? pageTitle ?? "Video"}`,
+    format: "mp4",
+    playlist: videoUrl,
+    language: meta.language,
+    xhr: {
+      haveCorsPolicy: false,
+      headers: {
+        referer: resourceURL.origin + "/",
+        origin: resourceURL.origin
+      }
+    }
+  };
+}
+
+// providers/extractors/supervideo.ts
+async function extractSupervideoStreams(embedURL, requestOpts, ctx, meta) {
+  ctx.log.debug(`[supervideo] Loading embed page: ${embedURL.href}`);
+  const opts = {
+    ...requestOpts,
+    followRedirects: true,
+    extraHeaders: {
+      ...requestOpts.extraHeaders || {},
+      Accept: `text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8`,
+      "Accept-Language": "en-US,en;q=0.9",
+      "Accept-Encoding": "gzip, deflate, br, zstd",
+      Connection: "keep-alive",
+      "Upgrade-Insecure-Requests": "1",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      Priority: "u=0, i",
+      Pragma: "no-cache",
+      "Cache-Control": "no-cache",
+      cookie: void 0
+      // Ensure cookies are not sent with the request
+    }
+  };
+  const page = await ctx.cheerio.load(embedURL, opts, ctx.xhr);
+  ctx.log.debug(`[supervideo] Page loaded, searching for video source...`);
+  const scriptContent = page.$('script:contains("eval")').html();
+  if (!scriptContent || scriptContent.trim() === "") {
+    ctx.log.warn("[supervideo] No eval-packed script found on the page.");
+    return null;
+  }
+  ctx.log.debug(`[supervideo] Eval-packed script: ${scriptContent.substring(0, 100)}...`);
+  const unpackedCode = unpackV2(scriptContent);
+  if (!unpackedCode) {
+    ctx.log.warn("[supervideo] No eval-packed code found in script.");
+    return null;
+  }
+  const unpackedArgs = extractContructorJSONArguments(unpackedCode.replace('jwplayer("vplayer").setup', "new Setup"));
+  if (!unpackedArgs || !unpackedArgs.sources || unpackedArgs.sources.length < 1) {
+    ctx.log.warn("[supervideo] No sources found in jwplayer setup arguments.");
+    return null;
+  }
+  ctx.log.debug(`[supervideo] Extracted sources`);
+  return unpackedArgs.sources.map(
+    (source) => ({
+      fileName: `[Supervideo] ${meta.fileName ?? "Video"}`,
+      format: meta.format || "m3u8",
+      playlist: source.file,
+      language: meta.language,
+      xhr: {
+        haveCorsPolicy: true,
+        headers: {
+          host: new URL(source.file).host,
+          referer: embedURL.origin + "/",
+          origin: embedURL.origin
+        }
+      }
+    })
+  );
+}
+
+// providers/extractors/dropload.ts
+async function extractDroploadStreams(embedURL, requestOpts, ctx, meta) {
+  const id = embedURL.pathname.split("/").filter(Boolean).pop()?.replace("embed-", "");
+  const resourceURL = new URL(`/embed-${id}`, embedURL.origin);
+  ctx.log.debug(`[dropload] Loading embed page: ${resourceURL.href}`);
+  const opts = {
+    ...requestOpts,
+    followRedirects: true,
+    extraHeaders: {
+      ...requestOpts.extraHeaders || {},
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "accept-language": "en-US,en;q=0.9,es;q=0.8",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      priority: "u=0, i",
+      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "iframe",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-storage-access": "active",
+      "upgrade-insecure-requests": "1",
+      cookie: void 0
+      // Ensure cookies are not sent with the request
+    }
+  };
+  const page = await ctx.cheerio.load(resourceURL, opts, ctx.xhr);
+  ctx.log.debug(`[dropload] Page loaded, searching for video source...`);
+  const scriptContent = page.$('script:contains("eval")').html();
+  if (!scriptContent || scriptContent.trim() === "") {
+    ctx.log.warn("[dropload] No eval-packed script found on the page.");
+    return null;
+  }
+  ctx.log.debug(`[dropload] Eval-packed script: ${scriptContent.substring(0, 100)}...`);
+  const unpackedCode = unpackV2(scriptContent);
+  if (!unpackedCode) {
+    ctx.log.warn("[dropload] No eval-packed code found in script.");
+    return null;
+  }
+  const unpackedArgs = extractContructorJSONArguments(unpackedCode.replace('jwplayer("vplayer").setup', "new Setup"));
+  if (!unpackedArgs || !unpackedArgs.sources || unpackedArgs.sources.length < 1) {
+    ctx.log.warn("[dropload] No sources found in jwplayer setup arguments.");
+    return null;
+  }
+  ctx.log.debug(`[dropload] Extracted sources`);
+  return unpackedArgs.sources.map(
+    (source) => ({
+      fileName: `[Dropload] ${meta.fileName ?? "Video"}`,
+      format: meta.format || "m3u8",
+      playlist: source.file,
+      language: meta.language,
+      xhr: {
+        haveCorsPolicy: true,
+        headers: {
+          host: new URL(source.file).host,
+          referer: resourceURL.origin + "/",
+          origin: resourceURL.origin
+        }
+      }
+    })
+  );
+}
+
+// providers/media/es/repelishd/stream.ts
+var ESCAPED_SLASH_RE = /\\\//;
+var SCRIPT_TAG_RE = /<script[^>]*>[\s\S]*?<\/script>/gi;
+var LINK_TAG_RE = /<link[^>]*\/?>/gi;
+async function getStreams(requester, ctx) {
+  if (requester.media.type === "channel") return [];
+  const pageRequestOpt = {
+    ...requester,
+    extraHeaders: {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "accept-language": "en-US,en;q=0.9,es;q=0.8",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      priority: "u=0, i",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "document",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "same-origin",
+      "sec-fetch-user": "?1",
+      "upgrade-insecure-requests": "1",
+      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+      Referer: new URL(PROVIDER.config.baseUrl).origin + "/"
+    }
+  };
+  const titleCount = requester.media.localizedTitles.length ?? 0;
+  const searchURLs = deduplicateArray([
+    // First: ID-based search (default createResourceURL)
+    (() => {
+      const resourceIdURL = PROVIDER.createResourceURL(requester);
+      return resourceIdURL.href;
+    })(),
+    // Then: localized title variants following the translation priority order
+    ...Array.from({ length: titleCount + 1 }, (_, i) => {
+      const pattern = "?story={title:form-uri}&do=search&subaction=search";
+      const path = PROVIDER.createPatternString(pattern, requester.media, {}, i);
+      return new URL(path, PROVIDER.config.baseUrl).href;
+    })
+  ]).map((url) => new URL(url));
+  let resourceURL = searchURLs[0];
+  let bestResult = null;
+  for (let i = 0; i < searchURLs.length; i++) {
+    try {
+      resourceURL = searchURLs[i];
+      ctx.log.debug(`Search attempt ${i + 1}/${searchURLs.length}: ${resourceURL}`);
+      const resultsPage = await ctx.cheerio.load(resourceURL, pageRequestOpt, ctx.xhr);
+      const mediaEntries = resultsPage.$(locators.$results).toArray();
+      ctx.log.debug(`Found ${mediaEntries.length} media entries in search results.`);
+      bestResult = selectBestResult(resultsPage, mediaEntries, requester.media);
+      if (bestResult) break;
+      ctx.log.debug(`No match on attempt ${i + 1}, trying next...`);
+    } catch (error) {
+      ctx.log.error(`Error during search attempt ${i + 1} with URL ${resourceURL.href}: ${error.message}`);
+    }
+  }
+  if (!bestResult) {
+    ctx.log.warn("No best matching result found for the media. Returning empty stream list.");
+    return [];
+  }
+  ctx.log.debug(`Best matching entry: ${bestResult.inputs.title} (${bestResult.inputs.year}) with score ${bestResult.score}`);
+  const bestResourceURL = new URL(bestResult.inputs.entry, resourceURL.origin);
+  pageRequestOpt.extraHeaders.Referer = resourceURL.href;
+  ctx.log.info(`Created best match location URL: ${bestResourceURL.href}`);
+  const results = [];
+  let servers = [];
+  if (requester.media.type === "movie") {
+    const allServers = await extractMoviesServers(requester, ctx) ?? [];
+    servers.push(...allServers);
+  } else if (requester.media.type === "serie") {
+    bestResourceURL.hash = `#season-${requester.media.season}`;
+    ctx.log.info(`Navigating to episode page with URL: ${bestResourceURL.href}`);
+    const episodesPage = await ctx.cheerio.load(bestResourceURL, pageRequestOpt, ctx.xhr);
+    const allServers = await extractSeriesServers(episodesPage, requester, ctx) ?? [];
+    servers.push(...allServers);
+  }
+  ctx.log.info(`Found servers:
+${servers?.map((s) => JSON.stringify(s)).join(",\n ")}`);
+  for (const server of servers) {
+    try {
+      if (server.name.includes("mixdrop")) {
+        const id = server.url.split("/").pop() || "";
+        const mixdropURL = new URL(`https://mixdrop.top/e/${id}`);
+        const opts = {
+          ...requester,
+          extraHeaders: {
+            cookie: "PHPSESSID=vbm82pf154krs00pr9psdolsbf",
+            referer: resourceURL.origin + "/"
+          }
+        };
+        const source = await extractMixdropStream(mixdropURL, opts, ctx, { language: requester.targetLanguageISO });
+        if (source) results.push(source);
+        else ctx.log.warn(`Failed to extract stream from Mixdrop URL: ${mixdropURL.href}`);
+      } else if (server.name.includes("doodstream")) {
+        const opts = {
+          ...requester,
+          extraHeaders: {
+            referer: resourceURL.origin + "/"
+          }
+        };
+        const source = await extractDoodstreamStreams(new URL(server.url), opts, ctx, { language: requester.targetLanguageISO });
+        if (source) results.push(source);
+        else ctx.log.warn(`Failed to extract stream from Doodstream URL: ${server.url}`);
+      } else if (server.name.includes("supervideo")) {
+        const opts = {
+          ...requester,
+          extraHeaders: {
+            referer: resourceURL.origin + "/"
+          }
+        };
+        const source = await extractSupervideoStreams(new URL(server.url), opts, ctx, { language: PROVIDER.getPrimaryLanguage() });
+        if (source) results.push(...source);
+        else ctx.log.warn(`Failed to extract stream from Supervideo URL: ${server.url}`);
+      } else if (server.name.includes("dropload")) {
+        const opts = {
+          ...requester,
+          extraHeaders: {
+            referer: resourceURL.origin + "/"
+          }
+        };
+        const sources = await extractDroploadStreams(new URL(server.url), opts, ctx, { language: PROVIDER.getPrimaryLanguage() });
+        if (sources) results.push(...sources);
+        else ctx.log.warn(`Failed to extract stream from Dropload URL: ${server.url}`);
+      }
+    } catch (error) {
+      ctx.log.error(`Error processing server ${server.name}: ${error.message}`);
+    }
+  }
+  return results;
+}
+function selectBestResult(resultsPage, results, media) {
+  return results.map((element) => {
+    const entry = resultsPage.$(element).find(locators.$result_entry).attr("href") || "";
+    const title = resultsPage.$(element).find(locators.$result_title).text().trim();
+    const year = resultsPage.$(element).find(locators.$result_year).text().trim();
+    const score = calculateMatchScore({ title, year }, media);
+    return {
+      inputs: {
+        entry,
+        title,
+        year
+      },
+      score
+    };
+  }).filter((result) => result.score >= 85).sort((a, b) => b.score - a.score).at(0) ?? null;
+}
+async function extractMoviesServers(requester, ctx) {
+  const imdbId = requester.media.imdbId;
+  const resourceURL = new URL(`ddl/${imdbId}`, "https://verhdlink.cam");
+  ctx.log.info(`Fetching movie servers from URL: ${resourceURL.href}`);
+  const fetchOpts = {
+    method: "GET",
+    clean: true,
+    attachUserAgent: true,
+    headers: {
+      accept: "*/*",
+      "accept-language": "en-US,en;q=0.9,es;q=0.8",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      priority: "u=1",
+      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "script",
+      "sec-fetch-mode": "no-cors",
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-storage-access": "active",
+      cookie: "cf_clearance=YyYM9geBrHyRJItMlhvovS2gANi5_j4IIBEeN4yqMEQ-1772311865-1.2.1.1-iEfEm5xb69kea2U2VYqW9kR4nG7kvSLYG0YYvW43udiTSpcnvdtRGRb5jU5q3naoiZITVT1bRzZfv10pRW53w779y_Kls1G.UZjE_OhKZC7OtKdwj3JpQpMdMSXNxAytVcmLIRU1HOhXOHi5XhI9Lt41Tq16xBZvGNaZr_QLm9UjMh3ekOhujJGCsyYzA0bngSGU8HSdRCeiqk0YXo.cTR6ayQ9p4qlc2IgtjAOHIRg",
+      Referer: PROVIDER.config.baseUrl
+    }
+  };
+  const serverCodeInjection = await ctx.xhr.fetchResponse(resourceURL, fetchOpts, requester);
+  ctx.log.debug(`Received server code response: ${serverCodeInjection?.substring(0, 200)}...`);
+  const html = extractContructorJSONArguments(serverCodeInjection);
+  if (!html || !html[0]) {
+    ctx.log.warn("No HTML found in server code injection.");
+    return null;
+  }
+  const htmlContent = html[0].slice(1, -1);
+  ctx.log.debug(`Extracted HTML from server code injection: ${htmlContent?.substring(0, 200)}...`);
+  const cleanedHTML = htmlContent.replace(ESCAPED_SLASH_RE, "/").replace(SCRIPT_TAG_RE, "").replace(LINK_TAG_RE, "");
+  const page$ = ctx.cheerio.$load(cleanedHTML, null, false);
+  const servers = page$(".streams").toArray();
+  ctx.log.info(`Extracted ${servers.length} server entries from the HTML.`);
+  return servers.map((element) => {
+    const serverName = page$(element).find(".streaming").text().trim().toLowerCase();
+    const onclick = page$(element).attr("onclick");
+    const quality = page$(element).find(".quality mark").text().trim();
+    const size = page$(element).find('span[style*="float:right"] span[style*="color:#999"]').text().trim();
+    if (!onclick) {
+      ctx.log.warn(`No onclick attribute found for server entry: ${serverName}`);
+      return null;
+    }
+    const serverURL = extractVariableValue(onclick, "window.parent.location.href");
+    return { name: serverName, url: serverURL, quality, size };
+  }).sort((a, b) => {
+    const priority = ["mixdrop", "doodstream", "supervideo"];
+    const aPriority = priority.findIndex((p) => a?.name.includes(p)) ?? Number.POSITIVE_INFINITY;
+    const bPriority = priority.findIndex((p) => b?.name.includes(p)) ?? Number.POSITIVE_INFINITY;
+    return aPriority - bPriority;
+  }).filter((server) => server !== null && !server.url?.includes("verhdlink"));
+}
+async function extractSeriesServers(page, requester, ctx) {
+  const $server = page.$(`.dooplay_player .tt_series ul > li`).toArray();
+  ctx.log.info(`Extracted ${$server.length} server entries from the episode page.`);
+  return $server.map((element) => {
+    const dataNum = page.$(element).find("a").first().attr("data-num")?.toLowerCase().trim();
+    const anchors = page.$(element).find("a").toArray();
+    return anchors.map((anchor) => {
+      const serverName = page.$(anchor).text().trim().toLowerCase();
+      const link = page.$(anchor).attr("data-link");
+      if (!link || serverName === "") {
+        ctx.log.warn(`Missing data-link or server name data-num: ${dataNum}, serverName: ${serverName}, link: ${link}`);
+        return null;
+      }
+      return {
+        id: dataNum,
+        name: serverName,
+        url: link,
+        quality: "",
+        size: ""
+      };
+    });
+  }).flat().filter((server) => server !== null).filter((server) => server.id === `${requester.media.season}x${requester.media.episode}`).sort((a, b) => {
+    const priority = ["mixdrop", "doodstream", "supervideo", "dropload"];
+    const aPriority = priority.findIndex((p) => a?.name.includes(p)) ?? Number.POSITIVE_INFINITY;
+    const bPriority = priority.findIndex((p) => b?.name.includes(p)) ?? Number.POSITIVE_INFINITY;
+    return aPriority - bPriority;
+  }).filter((server) => server !== null && !server.url?.includes("verhdlink"));
+}
+
+// providers/media/es/repelishd/index.ts
+var index_default = defineProviderModule(PROVIDER, manifest_default.providers["repelishd"], {
+  getStreams
 });
 export {
   index_default as default

@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AUTO-GENERATED — Do not edit manually                      ║
-// ║  Provider: media/multi/autoembed                           ║
+// ║  Provider: ip                                              ║
 // ║  Bundled with esbuild — npx bundle-provider                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -11,10 +11,10 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
 
-// node_modules/grabit-engine/dist/src/core/cheerio.js
+// node_modules/grabit-engine/dist/esm/src/core/cheerio.js
 import * as cheerio from "cheerio";
 
-// node_modules/grabit-engine/dist/src/types/models/Provider.js
+// node_modules/grabit-engine/dist/esm/src/types/models/Provider.js
 var EProviderQueryKey;
 (function(EProviderQueryKey2) {
   EProviderQueryKey2[EProviderQueryKey2["id"] = 0] = "id";
@@ -29,42 +29,16 @@ var EProviderQueryKey;
   EProviderQueryKey2[EProviderQueryKey2["ep_imdb"] = 9] = "ep_imdb";
 })(EProviderQueryKey || (EProviderQueryKey = {}));
 
-// node_modules/grabit-engine/dist/src/types/input/Media.js
+// node_modules/grabit-engine/dist/esm/src/types/input/Media.js
 var MEDIA_TYPES = ["movie", "serie", "channel"];
 
-// node_modules/grabit-engine/dist/src/utils/extractor.js
-var YEAR_REGEX = /(19|20)\d{2}/;
+// node_modules/grabit-engine/dist/esm/src/utils/extractor.js
 function extractExtension(url) {
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
   return match ? match[1] : null;
 }
-function extractYearFromText(text) {
-  const yearMatch = text.match(YEAR_REGEX);
-  return yearMatch ? parseInt(yearMatch[0], 10) : null;
-}
-function extractSetCookies(headers) {
-  if (!headers)
-    return [];
-  const maybeGet = headers.get;
-  if (typeof maybeGet === "function") {
-    const maybeGetAll = headers.getAll;
-    if (typeof maybeGetAll === "function") {
-      const all = maybeGetAll.call(headers, "set-cookie") || maybeGetAll.call(headers, "Set-Cookie");
-      if (Array.isArray(all) && all.length)
-        return all;
-    }
-    const val = maybeGet.call(headers, "set-cookie") ?? maybeGet.call(headers, "Set-Cookie");
-    if (!val)
-      return [];
-    return Array.isArray(val) ? val : [val];
-  }
-  const sc = headers["set-cookie"] ?? headers["Set-Cookie"] ?? headers["setCookie"];
-  if (!sc)
-    return [];
-  return Array.isArray(sc) ? sc : [sc];
-}
 
-// node_modules/grabit-engine/dist/src/utils/logger.js
+// node_modules/grabit-engine/dist/esm/src/utils/logger.js
 var DebugLogger = class {
   isProduction = false;
   timestamp = false;
@@ -170,7 +144,7 @@ var DebugLogger = class {
 };
 var _Logger = new DebugLogger(false, "GRABIT-ENGINE");
 
-// node_modules/grabit-engine/dist/src/utils/standard.js
+// node_modules/grabit-engine/dist/esm/src/utils/standard.js
 var isDevelopment = () => typeof process !== "undefined" && process.env?.ENV !== "production";
 var isNode = () => typeof process !== "undefined" && process.versions != null && process.versions.node != null;
 var isBrowser = () => typeof window !== "undefined" && typeof window.document !== "undefined";
@@ -198,15 +172,11 @@ function normalizeHeaders(headers) {
   }
   return result;
 }
-function createCookiesFromSet(headers) {
-  const cookies = extractSetCookies(headers);
-  return cookies.map((cookie) => cookie.split(";")[0]).join("; ");
-}
 function deduplicateArray(array) {
   return Array.from(new Set(array));
 }
 
-// node_modules/grabit-engine/dist/src/types/ProcessError.js
+// node_modules/grabit-engine/dist/esm/src/types/ProcessError.js
 var ProcessError = class _ProcessError extends Error {
   /** Unique error code identifier (e.g., 'VALIDATION_ERROR', 'NOT_FOUND') */
   code;
@@ -232,7 +202,7 @@ var ProcessError = class _ProcessError extends Error {
 };
 var isProcessError = (error) => error instanceof ProcessError;
 
-// node_modules/grabit-engine/dist/src/types/HttpError.js
+// node_modules/grabit-engine/dist/esm/src/types/HttpError.js
 var HttpError = class _HttpError extends Error {
   /** Unique error code identifier (e.g., 'VALIDATION_ERROR', 'NOT_FOUND') */
   code;
@@ -270,10 +240,10 @@ var HttpError = class _HttpError extends Error {
 };
 var isHttpError = (error) => error instanceof HttpError;
 
-// node_modules/grabit-engine/dist/src/utils/similarity.js
+// node_modules/grabit-engine/dist/esm/src/utils/similarity.js
 import ParseDuration from "parse-duration";
 
-// node_modules/grabit-engine/dist/src/services/crypto.js
+// node_modules/grabit-engine/dist/esm/src/services/crypto.js
 import Crypto from "crypto";
 if (typeof globalThis.atob === "undefined" || typeof globalThis.btoa === "undefined") {
   try {
@@ -288,7 +258,7 @@ if (typeof globalThis.atob === "undefined" || typeof globalThis.btoa === "undefi
   }
 }
 
-// node_modules/grabit-engine/dist/src/services/cache.js
+// node_modules/grabit-engine/dist/esm/src/services/cache.js
 var Cache = class {
   storage = /* @__PURE__ */ new Map();
   autoCleanupInterval = null;
@@ -393,7 +363,7 @@ var Cache = class {
 };
 var CACHE = new Cache();
 
-// node_modules/grabit-engine/dist/src/services/fetcher.js
+// node_modules/grabit-engine/dist/esm/src/services/fetcher.js
 var _resolvedFetch = null;
 var _resolvedImpitClass = null;
 async function resolveImpitClass() {
@@ -540,9 +510,9 @@ async function appFetch(request, options = {}) {
   };
   const response = await fetch(request, mergedOptions);
   if (cacheKey && cacheTTL && response.ok) {
-    serializeResponse(response).then((serialized) => {
-      CACHE.set(cacheKey, serialized, cacheTTL);
-    });
+    const serialized = await serializeResponse(response);
+    CACHE.set(cacheKey, serialized, cacheTTL);
+    return reconstructResponse(serialized);
   }
   return response;
 }
@@ -551,10 +521,10 @@ async function fetchResponse(request, options) {
   return handleResponse(requestResponse);
 }
 
-// node_modules/grabit-engine/dist/src/controllers/manager.js
+// node_modules/grabit-engine/dist/esm/src/controllers/manager.js
 import pLimit from "p-limit";
 
-// node_modules/grabit-engine/dist/src/utils/path.js
+// node_modules/grabit-engine/dist/esm/src/utils/path.js
 var SFPattern = /\{\s*(\w+)\s*:\s*(\d+|string|uri|form-uri)\s*\}/g;
 var NON_DIGIT_PATTERN = /\D/g;
 var REPLACE_URI_SPACE_PATTERN = /%20/g;
@@ -631,7 +601,7 @@ function pathJoin(...parts) {
   }).filter((part) => part.length > 0).join("/");
 }
 
-// node_modules/grabit-engine/dist/src/utils/validator.js
+// node_modules/grabit-engine/dist/esm/src/utils/validator.js
 import { isURL } from "validator";
 var SCHEME_REGEX = /^[a-z][a-z0-9._-]*$/;
 var VERSION_REGEX = /^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$/;
@@ -776,7 +746,7 @@ function validateManifestConfiguration(provider, manifest) {
   }
 }
 
-// node_modules/grabit-engine/dist/src/services/github.js
+// node_modules/grabit-engine/dist/esm/src/services/github.js
 var GithubService;
 (function(GithubService2) {
   const GITHUB_REGEX = [/^https?:\/\/github\.com\/([^/]+)\/([^/.]+)(\.git)?$/, /^github\.com\/([^/]+)\/([^/.]+)(\.git)?$/, /^([^/]+)\/([^/]+)$/];
@@ -890,16 +860,28 @@ var GithubService;
     const modules = {};
     for (const [scheme, manifest] of Object.entries(providers)) {
       let sourceCode;
+      const fetchPath = `${pathJoin(manifest.dir, scheme)}/index.js`;
+      const fullApiUrl = `https://api.github.com/repos/${opts.owner}/${opts.repo}/contents/${opts.rootDir}${fetchPath}?ref=${opts.branch}`;
       try {
-        sourceCode = await fetchFileFromGitHub(opts, `${pathJoin(manifest.dir, scheme)}/index.js`);
+        sourceCode = await fetchFileFromGitHub(opts, fetchPath);
       } catch (error) {
+        _Logger.error(`[GithubService] Failed to fetch source for provider "${scheme}":
+  URL: ${fullApiUrl}
+  rootDir: "${opts.rootDir || "(none)"}"
+  manifest.dir: "${manifest.dir ?? "(none)"}"
+  Error: ${error instanceof Error ? error.message : error}`);
         modules[scheme] = null;
         continue;
       }
-      if (moduleResolver) {
-        modules[scheme] = await moduleResolver(scheme, sourceCode);
-      } else if (isNode()) {
-        modules[scheme] = await defaultNodeResolver(scheme, sourceCode);
+      try {
+        if (moduleResolver) {
+          modules[scheme] = await moduleResolver(scheme, sourceCode);
+        } else if (isNode()) {
+          modules[scheme] = await defaultNodeResolver(scheme, sourceCode);
+        }
+      } catch (error) {
+        _Logger.error(`[GithubService] Failed to resolve module for provider "${scheme}": ${error instanceof Error ? error.message : error}`);
+        modules[scheme] = null;
       }
     }
     return modules;
@@ -929,7 +911,7 @@ var GithubService;
   }
 })(GithubService || (GithubService = {}));
 
-// node_modules/grabit-engine/dist/src/services/registry.js
+// node_modules/grabit-engine/dist/esm/src/services/registry.js
 var RegistryService;
 (function(RegistryService2) {
   async function initializeProviders(source) {
@@ -963,7 +945,7 @@ var RegistryService;
   RegistryService2.getManifest = getManifest;
 })(RegistryService || (RegistryService = {}));
 
-// node_modules/grabit-engine/dist/src/services/require.js
+// node_modules/grabit-engine/dist/esm/src/services/require.js
 var RequireService;
 (function(RequireService2) {
   async function initializeProviders(source) {
@@ -993,7 +975,7 @@ var RequireService;
   RequireService2.getManifest = getManifest;
 })(RequireService || (RequireService = {}));
 
-// node_modules/grabit-engine/dist/src/services/tmdb.js
+// node_modules/grabit-engine/dist/esm/src/services/tmdb.js
 var TMDB;
 (function(TMDB2) {
   const API_BASE_URL = "https://api.themoviedb.org/3";
@@ -1134,7 +1116,8 @@ error: ${error.message}`);
   TMDB2.createRequesterMedia = createRequesterMedia;
 })(TMDB || (TMDB = {}));
 
-// node_modules/grabit-engine/dist/src/controllers/provider.js
+// node_modules/grabit-engine/dist/esm/src/controllers/provider.js
+import { default as ISO6391 } from "iso-639-1";
 function defineProviderModule(_this, manifest, workers) {
   return {
     meta: manifest,
@@ -1162,7 +1145,7 @@ function createModuleWorkers(provider, manifest, workers) {
               })
             },
             format,
-            fileName: `[${manifest.name}][${format.toUpperCase()}] - ${default2.getName(source.language)} - ${source.fileName ?? "Source"} `,
+            fileName: `[${manifest.name}][${format.toUpperCase()}] - ${ISO6391.getName(source.language)} - ${source.fileName ?? "Source"} `,
             providerName: manifest.name,
             scheme: provider.config.scheme
           };
@@ -1229,165 +1212,10 @@ async function validateSubtitleSources(sources, requester, context) {
   });
 }
 
-// node_modules/grabit-engine/dist/src/services/unpacker.js
-var UNPACK_LOOKUP = /\b\w+\b/g;
-var JUICERS = [/}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'\.split\('\|'\), *(\d+), *(.*)\)\)/, /}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'\.split\('\|'\)/];
-function detectPacked(source) {
-  return source.replace(" ", "").startsWith("eval(function(p,a,c,k,e,");
-}
-function unpackV2(source) {
-  let { payload, symtab, radix, count } = _filterargs(source);
-  if (count != symtab.length) {
-    throw new ProcessError({
-      code: "UNPACKER_ERROR",
-      message: "Malformed p.a.c.k.e.r. symtab.",
-      status: 500,
-      expose: false
-    });
-  }
-  let unbase;
-  try {
-    unbase = new Unbaser(radix);
-  } catch (e) {
-    throw new ProcessError({
-      code: "UNPACKER_ERROR",
-      message: e instanceof Error ? `Error initializing Unbaser: ${e.message}` : "Error initializing Unbaser",
-      status: 500,
-      expose: false
-    });
-  }
-  function lookup(match) {
-    const word = match;
-    let word2;
-    if (radix == 1) {
-      word2 = symtab[parseInt(word)];
-    } else {
-      word2 = symtab[unbase.unbase(word)];
-    }
-    return word2 || word;
-  }
-  source = payload.replace(UNPACK_LOOKUP, lookup);
-  return _replacestrings(source);
-  function _filterargs(source2) {
-    for (const juicer of JUICERS) {
-      const args = juicer.exec(source2);
-      if (args) {
-        let a = args;
-        if (a[2] == "[]") {
-        }
-        try {
-          return {
-            payload: a[1],
-            symtab: a[4].split("|"),
-            radix: parseInt(a[2]),
-            count: parseInt(a[3])
-          };
-        } catch (ValueError) {
-          throw new ProcessError({
-            code: "UNPACKER_ERROR",
-            message: "Corrupted p.a.c.k.e.r. data.",
-            status: 500,
-            expose: false
-          });
-        }
-      }
-    }
-    throw new ProcessError({
-      code: "UNPACKER_ERROR",
-      message: "Could not make sense of p.a.c.k.e.r data (unexpected code structure)",
-      status: 500,
-      expose: false
-    });
-  }
-  function _replacestrings(source2) {
-    return source2;
-  }
-}
-function disabled_unpackV1(code) {
-  function indent(codeLines) {
-    try {
-      var tabs = 0, old = -1, add = "";
-      for (var i = 0; i < codeLines.length; i++) {
-        if (codeLines[i].indexOf("{") != -1)
-          tabs++;
-        if (codeLines[i].indexOf("}") != -1)
-          tabs--;
-        if (old != tabs) {
-          old = tabs;
-          add = "";
-          while (old > 0) {
-            add += "	";
-            old--;
-          }
-          old = tabs;
-        }
-        codeLines[i] = add + codeLines[i];
-      }
-    } finally {
-      tabs = null;
-      old = null;
-      add = null;
-    }
-    return codeLines;
-  }
-  var env = {
-    eval: function(c) {
-      code = c;
-    },
-    window: {},
-    document: {}
-  };
-  eval("with(env) {" + code + "}");
-  var codeWithNewLines = (code + "").replace(/;/g, ";\n").replace(/{/g, "\n{\n").replace(/}/g, "\n}\n").replace(/\n;\n/g, ";\n").replace(/\n\n/g, "\n");
-  var splitLines = codeWithNewLines.split("\n");
-  splitLines = indent(splitLines);
-  return splitLines.join("\n");
-}
-var Unbaser = class {
-  ALPHABET = {
-    62: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    95: "' !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'"
-  };
-  base;
-  dictionary = {};
-  constructor(base) {
-    this.base = base;
-    if (36 < base && base < 62) {
-      this.ALPHABET[base] = this.ALPHABET[base] || this.ALPHABET[62].substr(0, base);
-    }
-    if (2 <= base && base <= 36) {
-      this.unbase = (value) => parseInt(value, base);
-    } else {
-      try {
-        [...this.ALPHABET[base]].forEach((cipher, index) => {
-          this.dictionary[cipher] = index;
-        });
-      } catch (er) {
-        throw new ProcessError({
-          code: "UNPACKER_ERROR",
-          message: "Unsupported base encoding.",
-          status: 500,
-          expose: false
-        });
-      }
-      this.unbase = this._dictunbaser;
-    }
-  }
-  unbase;
-  /** Decodes a value to an integer. */
-  _dictunbaser(value) {
-    let ret = 0;
-    [...value].reverse().forEach((cipher, index) => {
-      ret = ret + this.base ** index * this.dictionary[cipher];
-    });
-    return ret;
-  }
-};
-
-// node_modules/grabit-engine/dist/src/services/tldts.js
+// node_modules/grabit-engine/dist/esm/src/services/tldts.js
 import * as _tldts from "tldts";
 
-// node_modules/grabit-engine/dist/src/models/provider.js
+// node_modules/grabit-engine/dist/esm/src/models/provider.js
 function normalizeLanguages(language) {
   return Array.isArray(language) ? language : [language];
 }
@@ -1642,13 +1470,7 @@ var Provider = class _Provider {
   }
 };
 
-// node_modules/grabit-engine/dist/src/hooks/useManager.js
-import { useEffect, useRef, useState } from "react";
-
-// node_modules/grabit-engine/dist/src/hooks/useScraper.js
-import { useCallback, useEffect as useEffect2, useRef as useRef2, useState as useState2 } from "react";
-
-// node_modules/grabit-engine/dist/src/index.js
+// node_modules/grabit-engine/dist/esm/src/index.node.js
 import { default as default2 } from "iso-639-1";
 
 // manifest.json
@@ -1747,18 +1569,21 @@ var manifest_default = {
   }
 };
 
-// providers/media/multi/autoembed/config.ts
+// providers/debug/ip/config.ts
 var config = {
-  scheme: "autoembed",
-  name: "AutoEmbed",
-  language: ["en", "fr", "es"],
-  baseUrl: "https://test.autoembed.cc",
+  scheme: "ip",
+  name: "Ipadress Checker",
+  language: "en",
+  baseUrl: "https://api.ipify.org",
   entries: {
     movie: {
-      endpoint: "embed/movie/{id:string}"
+      endpoint: "?format=json"
     },
     serie: {
-      endpoint: "embed/tv/{id:string}/{season:1}/{episode:1}"
+      endpoint: "?format=json"
+    },
+    channel: {
+      endpoint: "?format=json"
     }
   },
   mediaIds: ["tmdb", "imdb"],
@@ -1766,287 +1591,49 @@ var config = {
 };
 var PROVIDER = Provider.create(config);
 
-// providers/media/multi/autoembed/stream.ts
+// providers/debug/ip/stream.ts
 async function getStreams(requester, ctx) {
   const resourceURL = PROVIDER.createResourceURL(requester);
   ctx.log.debug(`Created resource URL: ${resourceURL}`);
-  const pageRequestOpt = {
-    ...requester,
-    extraHeaders: {
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "accept-language": "en-US,en;q=0.9,es;q=0.8",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      priority: "u=0, i",
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-      "sec-fetch-dest": "document",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "same-origin",
-      "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
-      Referer: resourceURL.origin + "/",
-      cookie: createCookies()
-    }
-  };
-  ctx.log.debug(`Page request options: ${JSON.stringify(pageRequestOpt)}`);
-  const resultsPage = await ctx.cheerio.load(resourceURL, pageRequestOpt, ctx.xhr);
-  const htmlTitle = resultsPage.$("head > title").text();
-  const title = htmlTitle.split("(")[0]?.trim() ?? requester.media.title;
-  const year = extractYearFromText(htmlTitle);
-  ctx.log.info(`Extracted title: ${title}, year: ${year}`);
-  const servers = siteServers().filter((s) => default2.getCode(s.language) === requester.targetLanguageISO).splice(0, 2);
-  ctx.log.info(`Filtered servers based on media language (${requester.targetLanguageISO}): ${JSON.stringify(servers)}`);
-  const results = [];
-  const apiURL = new URL("api/server", resourceURL.origin);
-  const apiOpts = {
-    clean: true,
-    attachUserAgent: true,
-    method: "GET",
-    headers: {
-      accept: "*/*",
-      "accept-language": "en-US,en;q=0.9,es;q=0.8",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      priority: "u=1, i",
-      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-      "sec-fetch-dest": "empty",
-      "sec-fetch-mode": "cors",
-      "sec-fetch-site": "same-origin",
-      cookie: pageRequestOpt.extraHeaders.cookie,
-      Referer: resourceURL.origin + "/"
-    }
-  };
-  for (const server of servers) {
-    try {
-      const params = new URLSearchParams({
-        ...requester.media.type === "movie" ? {
-          id: requester.media.tmdbId,
-          sr: "2",
-          // this is server index
-          args: `${title}*${year}*${requester.media.imdbId}`
-        } : {},
-        ...requester.media.type === "serie" ? {
-          id: requester.media.tmdbId,
-          sr: "2",
-          // this is server index
-          args: `${title}*${year}*${requester.media.imdbId}`,
-          ep: `${requester.media.season}`,
-          ss: `${requester.media.episode}`
-        } : {}
-      });
-      apiURL.search = params.toString();
-      ctx.log.info(`API URL: ${apiURL.toString()}`);
-      const apiResponse = await ctx.xhr.fetchResponse(apiURL, apiOpts, requester);
-      ctx.log.debug(`API Response: ${JSON.stringify(apiResponse)}`);
-      const decryptedData = await decryptData(apiResponse.data);
-      ctx.log.debug(`Decrypted API data: ${JSON.stringify(decryptedData)}`);
-      results.push({
-        fileName: `${server.name} Server - ${title} (${year})`,
-        playlist: decryptedData.url,
-        language: default2.getCode(server.language) ?? "en",
-        xhr: {
-          // I have notice that cf url is not cors blocked
-          haveCorsPolicy: false,
-          headers: decryptedData.headers
-        }
-      });
-    } catch (error) {
-      ctx.log.error(`Error processing server ${server.name}: ${error.message}`);
-    }
-  }
-  return results;
-}
-function siteServers() {
-  const server = [
+  const resultsPage = await ctx.xhr.fetchResponse(
+    resourceURL,
     {
-      flag: "US",
-      name: "Crown",
-      audioLanguage: "English audio",
-      language: "English"
+      method: "GET",
+      headers: {
+        Accept: "application/json"
+      }
     },
-    {
-      flag: "VN",
-      name: "Viet",
-      audioLanguage: "English audio",
-      language: "English"
-    },
-    {
-      flag: "US",
-      name: "Wink",
-      audioLanguage: "English audio",
-      language: "English"
-    },
-    {
-      flag: "AU",
-      name: "Orion",
-      audioLanguage: "English audio",
-      language: "English"
-    },
-    {
-      flag: "US",
-      name: "Cine",
-      audioLanguage: "English audio",
-      language: "English"
-    },
-    {
-      flag: "US",
-      name: "Beta",
-      audioLanguage: "English audio",
-      language: "English"
-    },
-    {
-      flag: "US",
-      name: "Nexon",
-      audioLanguage: "English audio",
-      language: "English"
-    },
-    {
-      flag: "GB",
-      name: "Gork",
-      audioLanguage: "English audio",
-      language: "English"
-    },
-    {
-      flag: "US",
-      name: "Vox",
-      audioLanguage: "English audio",
-      language: "English"
-    },
-    {
-      flag: "US",
-      name: "Minecloud",
-      audioLanguage: "English audio",
-      language: "English"
-    },
-    {
-      flag: "US",
-      name: "Joker",
-      audioLanguage: "English audio",
-      language: "English"
-    },
-    {
-      flag: "GB",
-      name: "Leo",
-      audioLanguage: "Original audio",
-      language: "English"
-    },
-    {
-      flag: "4K",
-      name: "4K",
-      audioLanguage: "Original audio",
-      language: "English"
-    },
-    {
-      flag: "IN",
-      name: "Hindi",
-      audioLanguage: "Hindi audio",
-      language: "Hindi"
-    },
-    {
-      flag: "IN",
-      name: "Indus",
-      audioLanguage: "Hindi audio",
-      language: "Hindi"
-    },
-    {
-      flag: "IN",
-      name: "Delta",
-      audioLanguage: "Bengali audio",
-      language: "Bengali"
-    },
-    {
-      flag: "IN",
-      name: "Ben",
-      audioLanguage: "Bengali audio",
-      language: "Bengali"
-    },
-    {
-      flag: "IN",
-      name: "Pearl",
-      audioLanguage: "Tamil audio",
-      language: "Tamil"
-    },
-    {
-      flag: "IN",
-      name: "Tamil",
-      audioLanguage: "Tamil audio",
-      language: "Tamil"
-    },
-    {
-      flag: "IN",
-      name: "Ruby",
-      audioLanguage: "Telugu audio",
-      language: "Telugu"
-    },
-    {
-      flag: "IN",
-      name: "Tel",
-      audioLanguage: "Telugu audio",
-      language: "Telugu"
-    },
-    {
-      flag: "IN",
-      name: "Mal",
-      audioLanguage: "Malayalam audio",
-      language: "Malayalam"
-    },
-    {
-      flag: "IN",
-      name: "Kan",
-      audioLanguage: "Kannada audio",
-      language: "Kannada"
-    },
-    {
-      flag: "FR",
-      name: "Lava",
-      audioLanguage: "French audio",
-      language: "French"
-    }
-  ];
-  return server.map((s, index) => ({ ...s, id: index + 1 }));
-}
-function createCookies() {
-  return createCookiesFromSet({
-    setCookie: [
-      "cf_clearance=iTDt9G3tSANGCfJMRHzEz_MlFJZwOAq6iKVF3AR8CdA-1772285363-1.2.1.1-v_FD2wJTlmh6SUOH58FG4j62K29B.t7I47whnCvkoyDmfrWowHE39ThbdvGJRpjtbsQ5LfkGoSMwVbaFLrvaCVoSAL_Kchr8WPqHFV56qJxu3YGjRc8ozYOu7XAq0AHGXNUCtzUGzsgjrKv_cwV3qxQEXfvisjaNQBKzQcchbMu6hSsnKRUToLr55XW9CHmNu_p9qeW96rGClMDKkLps8tu9FF2qM2L9aFN6CfgqLCs"
-    ]
-  });
-}
-async function decryptData(data) {
-  const vAtob = atob(data);
-  const p250 = JSON.parse(vAtob);
-  const salt = Buffer.from(p250.salt, "hex");
-  const iv = Buffer.from(p250.iv, "hex");
-  const encrypted = Buffer.from(p250.encryptedData, "base64");
-  const key = Crypto.pbkdf2Sync(
-    p250.key,
-    salt,
-    p250.iterations,
-    32,
-    // 256-bit key = 32 bytes
-    "sha256"
+    requester
   );
-  const decipher = Crypto.createDecipheriv("aes-256-cbc", key, iv);
-  decipher.setAutoPadding(true);
-  let decrypted = decipher.update(encrypted, void 0, "utf8");
-  decrypted += decipher.final("utf8");
-  if (!decrypted) {
-    throw new ProcessError({
-      code: "DECRYPTION_FAILED",
-      message: "Failed to decrypt data from provider",
-      details: { data }
-    });
-  }
-  return JSON.parse(decrypted);
+  ctx.log.debug(`Parsed JSON: ${JSON.stringify(resultsPage)}`);
+  return [];
 }
 
-// providers/media/multi/autoembed/index.ts
-var index_default = defineProviderModule(PROVIDER, manifest_default.providers["autoembed"], {
-  getStreams
+// providers/debug/ip/subtitle.ts
+async function getSubtitles(requester, ctx) {
+  const url = PROVIDER.createResourceURL(requester);
+  const subtitleUrl = new URL(`${url.origin}/api/subtitles?id=${url.searchParams.get("tmdb")}`);
+  const response = await ctx.xhr.fetch(subtitleUrl, {}, requester);
+  const data = await response.json();
+  if (!Array.isArray(data) || data.length === 0) return [];
+  return [
+    {
+      fileName: "subtitles.srt",
+      format: "srt",
+      sources: data.map((sub) => ({
+        language: sub.language,
+        languageName: sub.languageName,
+        url: sub.url
+      })),
+      xhr: { haveCorsPolicy: false, headers: {} }
+    }
+  ];
+}
+
+// providers/debug/ip/index.ts
+var index_default = defineProviderModule(PROVIDER, manifest_default.providers["ip"], {
+  getStreams,
+  getSubtitles
 });
 export {
   index_default as default

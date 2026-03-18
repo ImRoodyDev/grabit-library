@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AUTO-GENERATED — Do not edit manually                      ║
-// ║  Provider: media/es/repelishd                              ║
+// ║  Provider: lamovie                                         ║
 // ║  Bundled with esbuild — npx bundle-provider                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -11,10 +11,10 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
 
-// node_modules/grabit-engine/dist/src/core/cheerio.js
+// node_modules/grabit-engine/dist/esm/src/core/cheerio.js
 import * as cheerio from "cheerio";
 
-// node_modules/grabit-engine/dist/src/types/models/Provider.js
+// node_modules/grabit-engine/dist/esm/src/types/models/Provider.js
 var EProviderQueryKey;
 (function(EProviderQueryKey2) {
   EProviderQueryKey2[EProviderQueryKey2["id"] = 0] = "id";
@@ -29,19 +29,17 @@ var EProviderQueryKey;
   EProviderQueryKey2[EProviderQueryKey2["ep_imdb"] = 9] = "ep_imdb";
 })(EProviderQueryKey || (EProviderQueryKey = {}));
 
-// node_modules/grabit-engine/dist/src/types/input/Media.js
+// node_modules/grabit-engine/dist/esm/src/types/input/Media.js
 var MEDIA_TYPES = ["movie", "serie", "channel"];
 
-// node_modules/grabit-engine/dist/src/utils/extractor.js
+// node_modules/grabit-engine/dist/esm/src/utils/extractor.js
 var FUNCTIONJSON_REGEX = /\b(new\s+)?[a-zA-Z_$][\w$]*\s*\(/m;
 var QUOTE_UNQUOTED_REGEX = /([{,]\s*)([a-zA-Z0-9_$]+)\s*:/g;
 var SINGLE_TO_DOUBLE_QUOTES_REGEX = /'/g;
 var TRAILING_COMMA_REGEX = /,\s*([}\]])/g;
 var EVAL_CODE = /eval\s*\(/;
 var JS_ESCAPED_SINGLE_QUOTE_REGEX = /\\'/g;
-var SCALAR_VALUE_REGEX = /^(-?[\d.]+(?:e[+-]?\d+)?|true|false|null|undefined)/;
 var TERNARY_EXPR_REGEX = /(:\s*)[a-zA-Z_$][\w$]*\s*\?\s*(?:'[^']*'|"[^"]*"|\w+)\s*:\s*(?:'[^']*'|"[^"]*"|\w+)/g;
-var ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g;
 function extractExtension(url) {
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
   return match ? match[1] : null;
@@ -66,19 +64,16 @@ function extractContructorJSONArguments(codeString) {
     return null;
   return parseArgString(argsString);
 }
-function extractVariableValue(source, varName) {
-  const escaped = escapeRegex(varName);
-  const patterns = [new RegExp(`(?:var|let|const)\\s+${escaped}\\s*=\\s*`, "m"), new RegExp(`(?<![\\w$])${escaped}\\s*=(?![=>])\\s*`, "m")];
-  for (const pattern of patterns) {
-    const match = source.match(pattern);
-    if (!match || match.index === void 0)
-      continue;
-    const afterAssign = source.slice(match.index + match[0].length).trimStart();
-    const value = parseScalarValue(afterAssign);
-    if (value !== null)
-      return value;
-  }
-  return null;
+function extractContructorJSONArgumentsByName(source, functionName) {
+  const regex = new RegExp(`\\b${functionName}\\s*\\(`, "m");
+  const match = source.match(regex);
+  if (!match || match.index === void 0)
+    return null;
+  const startIndex = match.index + match[0].lastIndexOf("(");
+  const argsContent = extractParenthesisContent(source, startIndex);
+  if (argsContent === null)
+    return null;
+  return parseArgString(argsContent);
 }
 function extractParenthesisContent(str, startIndex) {
   const inner = extractEnclosedContent(str, startIndex, "(", ")");
@@ -176,39 +171,6 @@ function parseArgString(argsString) {
   });
   return result;
 }
-function parseScalarValue(src) {
-  const first = src[0];
-  if (first === "'") {
-    const end = findQuoteEnd(src, 1, "'");
-    return end === -1 ? null : src.slice(1, end);
-  }
-  if (first === '"') {
-    const end = findQuoteEnd(src, 1, '"');
-    return end === -1 ? null : src.slice(1, end);
-  }
-  if (first === "`") {
-    const end = findQuoteEnd(src, 1, "`");
-    return end === -1 ? null : src.slice(1, end);
-  }
-  const primitiveMatch = src.match(SCALAR_VALUE_REGEX);
-  if (primitiveMatch)
-    return primitiveMatch[1];
-  return null;
-}
-function findQuoteEnd(str, start, quote) {
-  for (let i = start; i < str.length; i++) {
-    if (str[i] === "\\") {
-      i++;
-      continue;
-    }
-    if (str[i] === quote)
-      return i;
-  }
-  return -1;
-}
-function escapeRegex(str) {
-  return str.replace(ESCAPE_REGEX, "\\$&");
-}
 function splitArguments(str) {
   const result = [];
   let depth = 0;
@@ -229,7 +191,7 @@ function splitArguments(str) {
   return result;
 }
 
-// node_modules/grabit-engine/dist/src/utils/logger.js
+// node_modules/grabit-engine/dist/esm/src/utils/logger.js
 var DebugLogger = class {
   isProduction = false;
   timestamp = false;
@@ -335,7 +297,7 @@ var DebugLogger = class {
 };
 var _Logger = new DebugLogger(false, "GRABIT-ENGINE");
 
-// node_modules/grabit-engine/dist/src/utils/standard.js
+// node_modules/grabit-engine/dist/esm/src/utils/standard.js
 var isDevelopment = () => typeof process !== "undefined" && process.env?.ENV !== "production";
 var isNode = () => typeof process !== "undefined" && process.versions != null && process.versions.node != null;
 var isBrowser = () => typeof window !== "undefined" && typeof window.document !== "undefined";
@@ -367,7 +329,7 @@ function deduplicateArray(array) {
   return Array.from(new Set(array));
 }
 
-// node_modules/grabit-engine/dist/src/types/ProcessError.js
+// node_modules/grabit-engine/dist/esm/src/types/ProcessError.js
 var ProcessError = class _ProcessError extends Error {
   /** Unique error code identifier (e.g., 'VALIDATION_ERROR', 'NOT_FOUND') */
   code;
@@ -393,7 +355,7 @@ var ProcessError = class _ProcessError extends Error {
 };
 var isProcessError = (error) => error instanceof ProcessError;
 
-// node_modules/grabit-engine/dist/src/types/HttpError.js
+// node_modules/grabit-engine/dist/esm/src/types/HttpError.js
 var HttpError = class _HttpError extends Error {
   /** Unique error code identifier (e.g., 'VALIDATION_ERROR', 'NOT_FOUND') */
   code;
@@ -431,7 +393,7 @@ var HttpError = class _HttpError extends Error {
 };
 var isHttpError = (error) => error instanceof HttpError;
 
-// node_modules/grabit-engine/dist/src/utils/similarity.js
+// node_modules/grabit-engine/dist/esm/src/utils/similarity.js
 import ParseDuration from "parse-duration";
 function calculateMatchScore(criteria, media) {
   let score = 0;
@@ -481,7 +443,7 @@ function buildVector(text) {
   return freq;
 }
 
-// node_modules/grabit-engine/dist/src/services/crypto.js
+// node_modules/grabit-engine/dist/esm/src/services/crypto.js
 import Crypto from "crypto";
 if (typeof globalThis.atob === "undefined" || typeof globalThis.btoa === "undefined") {
   try {
@@ -496,7 +458,7 @@ if (typeof globalThis.atob === "undefined" || typeof globalThis.btoa === "undefi
   }
 }
 
-// node_modules/grabit-engine/dist/src/services/cache.js
+// node_modules/grabit-engine/dist/esm/src/services/cache.js
 var Cache = class {
   storage = /* @__PURE__ */ new Map();
   autoCleanupInterval = null;
@@ -601,7 +563,7 @@ var Cache = class {
 };
 var CACHE = new Cache();
 
-// node_modules/grabit-engine/dist/src/services/fetcher.js
+// node_modules/grabit-engine/dist/esm/src/services/fetcher.js
 var _resolvedFetch = null;
 var _resolvedImpitClass = null;
 async function resolveImpitClass() {
@@ -748,9 +710,9 @@ async function appFetch(request, options = {}) {
   };
   const response = await fetch(request, mergedOptions);
   if (cacheKey && cacheTTL && response.ok) {
-    serializeResponse(response).then((serialized) => {
-      CACHE.set(cacheKey, serialized, cacheTTL);
-    });
+    const serialized = await serializeResponse(response);
+    CACHE.set(cacheKey, serialized, cacheTTL);
+    return reconstructResponse(serialized);
   }
   return response;
 }
@@ -759,10 +721,10 @@ async function fetchResponse(request, options) {
   return handleResponse(requestResponse);
 }
 
-// node_modules/grabit-engine/dist/src/controllers/manager.js
+// node_modules/grabit-engine/dist/esm/src/controllers/manager.js
 import pLimit from "p-limit";
 
-// node_modules/grabit-engine/dist/src/utils/path.js
+// node_modules/grabit-engine/dist/esm/src/utils/path.js
 var SFPattern = /\{\s*(\w+)\s*:\s*(\d+|string|uri|form-uri)\s*\}/g;
 var NON_DIGIT_PATTERN = /\D/g;
 var REPLACE_URI_SPACE_PATTERN = /%20/g;
@@ -839,7 +801,7 @@ function pathJoin(...parts) {
   }).filter((part) => part.length > 0).join("/");
 }
 
-// node_modules/grabit-engine/dist/src/utils/validator.js
+// node_modules/grabit-engine/dist/esm/src/utils/validator.js
 import { isURL } from "validator";
 var SCHEME_REGEX = /^[a-z][a-z0-9._-]*$/;
 var VERSION_REGEX = /^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$/;
@@ -984,7 +946,7 @@ function validateManifestConfiguration(provider, manifest) {
   }
 }
 
-// node_modules/grabit-engine/dist/src/services/github.js
+// node_modules/grabit-engine/dist/esm/src/services/github.js
 var GithubService;
 (function(GithubService2) {
   const GITHUB_REGEX = [/^https?:\/\/github\.com\/([^/]+)\/([^/.]+)(\.git)?$/, /^github\.com\/([^/]+)\/([^/.]+)(\.git)?$/, /^([^/]+)\/([^/]+)$/];
@@ -1098,16 +1060,28 @@ var GithubService;
     const modules = {};
     for (const [scheme, manifest] of Object.entries(providers)) {
       let sourceCode;
+      const fetchPath = `${pathJoin(manifest.dir, scheme)}/index.js`;
+      const fullApiUrl = `https://api.github.com/repos/${opts.owner}/${opts.repo}/contents/${opts.rootDir}${fetchPath}?ref=${opts.branch}`;
       try {
-        sourceCode = await fetchFileFromGitHub(opts, `${pathJoin(manifest.dir, scheme)}/index.js`);
+        sourceCode = await fetchFileFromGitHub(opts, fetchPath);
       } catch (error) {
+        _Logger.error(`[GithubService] Failed to fetch source for provider "${scheme}":
+  URL: ${fullApiUrl}
+  rootDir: "${opts.rootDir || "(none)"}"
+  manifest.dir: "${manifest.dir ?? "(none)"}"
+  Error: ${error instanceof Error ? error.message : error}`);
         modules[scheme] = null;
         continue;
       }
-      if (moduleResolver) {
-        modules[scheme] = await moduleResolver(scheme, sourceCode);
-      } else if (isNode()) {
-        modules[scheme] = await defaultNodeResolver(scheme, sourceCode);
+      try {
+        if (moduleResolver) {
+          modules[scheme] = await moduleResolver(scheme, sourceCode);
+        } else if (isNode()) {
+          modules[scheme] = await defaultNodeResolver(scheme, sourceCode);
+        }
+      } catch (error) {
+        _Logger.error(`[GithubService] Failed to resolve module for provider "${scheme}": ${error instanceof Error ? error.message : error}`);
+        modules[scheme] = null;
       }
     }
     return modules;
@@ -1137,7 +1111,7 @@ var GithubService;
   }
 })(GithubService || (GithubService = {}));
 
-// node_modules/grabit-engine/dist/src/services/registry.js
+// node_modules/grabit-engine/dist/esm/src/services/registry.js
 var RegistryService;
 (function(RegistryService2) {
   async function initializeProviders(source) {
@@ -1171,7 +1145,7 @@ var RegistryService;
   RegistryService2.getManifest = getManifest;
 })(RegistryService || (RegistryService = {}));
 
-// node_modules/grabit-engine/dist/src/services/require.js
+// node_modules/grabit-engine/dist/esm/src/services/require.js
 var RequireService;
 (function(RequireService2) {
   async function initializeProviders(source) {
@@ -1201,7 +1175,7 @@ var RequireService;
   RequireService2.getManifest = getManifest;
 })(RequireService || (RequireService = {}));
 
-// node_modules/grabit-engine/dist/src/services/tmdb.js
+// node_modules/grabit-engine/dist/esm/src/services/tmdb.js
 var TMDB;
 (function(TMDB2) {
   const API_BASE_URL = "https://api.themoviedb.org/3";
@@ -1342,7 +1316,8 @@ error: ${error.message}`);
   TMDB2.createRequesterMedia = createRequesterMedia;
 })(TMDB || (TMDB = {}));
 
-// node_modules/grabit-engine/dist/src/controllers/provider.js
+// node_modules/grabit-engine/dist/esm/src/controllers/provider.js
+import { default as ISO6391 } from "iso-639-1";
 function defineProviderModule(_this, manifest, workers) {
   return {
     meta: manifest,
@@ -1370,7 +1345,7 @@ function createModuleWorkers(provider, manifest, workers) {
               })
             },
             format,
-            fileName: `[${manifest.name}][${format.toUpperCase()}] - ${default2.getName(source.language)} - ${source.fileName ?? "Source"} `,
+            fileName: `[${manifest.name}][${format.toUpperCase()}] - ${ISO6391.getName(source.language)} - ${source.fileName ?? "Source"} `,
             providerName: manifest.name,
             scheme: provider.config.scheme
           };
@@ -1437,12 +1412,9 @@ async function validateSubtitleSources(sources, requester, context) {
   });
 }
 
-// node_modules/grabit-engine/dist/src/services/unpacker.js
+// node_modules/grabit-engine/dist/esm/src/services/unpacker.js
 var UNPACK_LOOKUP = /\b\w+\b/g;
 var JUICERS = [/}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'\.split\('\|'\), *(\d+), *(.*)\)\)/, /}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'\.split\('\|'\)/];
-function detectPacked(source) {
-  return source.replace(" ", "").startsWith("eval(function(p,a,c,k,e,");
-}
 function unpackV2(source) {
   let { payload, symtab, radix, count } = _filterargs(source);
   if (count != symtab.length) {
@@ -1511,46 +1483,6 @@ function unpackV2(source) {
     return source2;
   }
 }
-function disabled_unpackV1(code) {
-  function indent(codeLines) {
-    try {
-      var tabs = 0, old = -1, add = "";
-      for (var i = 0; i < codeLines.length; i++) {
-        if (codeLines[i].indexOf("{") != -1)
-          tabs++;
-        if (codeLines[i].indexOf("}") != -1)
-          tabs--;
-        if (old != tabs) {
-          old = tabs;
-          add = "";
-          while (old > 0) {
-            add += "	";
-            old--;
-          }
-          old = tabs;
-        }
-        codeLines[i] = add + codeLines[i];
-      }
-    } finally {
-      tabs = null;
-      old = null;
-      add = null;
-    }
-    return codeLines;
-  }
-  var env = {
-    eval: function(c) {
-      code = c;
-    },
-    window: {},
-    document: {}
-  };
-  eval("with(env) {" + code + "}");
-  var codeWithNewLines = (code + "").replace(/;/g, ";\n").replace(/{/g, "\n{\n").replace(/}/g, "\n}\n").replace(/\n;\n/g, ";\n").replace(/\n\n/g, "\n");
-  var splitLines = codeWithNewLines.split("\n");
-  splitLines = indent(splitLines);
-  return splitLines.join("\n");
-}
 var Unbaser = class {
   ALPHABET = {
     62: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -1592,10 +1524,11 @@ var Unbaser = class {
   }
 };
 
-// node_modules/grabit-engine/dist/src/services/tldts.js
+// node_modules/grabit-engine/dist/esm/src/services/tldts.js
 import * as _tldts from "tldts";
+var tldts = _tldts;
 
-// node_modules/grabit-engine/dist/src/models/provider.js
+// node_modules/grabit-engine/dist/esm/src/models/provider.js
 function normalizeLanguages(language) {
   return Array.isArray(language) ? language : [language];
 }
@@ -1850,13 +1783,7 @@ var Provider = class _Provider {
   }
 };
 
-// node_modules/grabit-engine/dist/src/hooks/useManager.js
-import { useEffect, useRef, useState } from "react";
-
-// node_modules/grabit-engine/dist/src/hooks/useScraper.js
-import { useCallback, useEffect as useEffect2, useRef as useRef2, useState as useState2 } from "react";
-
-// node_modules/grabit-engine/dist/src/index.js
+// node_modules/grabit-engine/dist/esm/src/index.node.js
 import { default as default2 } from "iso-639-1";
 
 // manifest.json
@@ -1955,36 +1882,91 @@ var manifest_default = {
   }
 };
 
-// providers/media/es/repelishd/config.ts
+// providers/media/es/lamovie/config.ts
 var config = {
-  scheme: "repelishd",
-  name: "Repelishd",
+  scheme: "lamovie",
+  name: "Lamovie",
   language: "es",
-  baseUrl: "https://repelishd.run",
+  baseUrl: "https://la.movie",
   entries: {
-    movie: {
-      endpoint: "?story={id:string}&do=search&subaction=search"
+    search_movie: {
+      // endpoint: '/search/{title:form-uri}/',
+      endpoint: "/wp-api/v1/search?filter=%7B%7D&postType=any&q={title:form-uri}&postsPerPage=26"
     },
-    serie: {
-      endpoint: "?story={id:string}&do=search&subaction=search"
+    search_serie: {
+      endpoint: "/wp-api/v1/search?filter=%7B%7D&postType=any&q={title:form-uri}&postsPerPage=26"
     }
   },
-  mediaIds: ["imdb", "tmdb"],
+  mediaIds: ["tmdb", "imdb"],
   contentAreCORSProtected: false
-};
-var locators = {
-  $results: ".items > article.item",
-  $result_entry: "a",
-  $result_title: ".data h3 a",
-  $result_year: ".data span"
 };
 var PROVIDER = Provider.create(config);
 
-// providers/extractors/mixdrop.ts
-async function extractMixdropStream(embedURL, requestOpts, ctx, meta) {
+// providers/extractors/goodstream.ts
+async function extractGoodstreamStreams(embedURL, requestOpts, ctx, meta) {
   const id = embedURL.pathname.split("/").filter(Boolean).pop();
-  embedURL.pathname = `/e/${id}`;
-  ctx.log.debug(`[mixdrop] Loading embed page: ${embedURL.href}`);
+  if (!embedURL.pathname.includes("embed-")) embedURL.pathname = "/embed-" + id;
+  ctx.log.info(`[goodstream] Loading embed page: ${embedURL.href}`);
+  const opts = {
+    ...requestOpts,
+    followRedirects: true,
+    extraHeaders: {
+      ...requestOpts.extraHeaders || {},
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "accept-language": "en-US,en;q=0.9,es;q=0.8",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      priority: "u=0, i",
+      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "iframe",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-storage-access": "active",
+      "upgrade-insecure-requests": "1",
+      cookie: void 0
+      // Ensure cookies are not sent with the request
+    }
+  };
+  const page = await ctx.cheerio.load(embedURL, opts, ctx.xhr);
+  ctx.log.debug(`[goodstream] Page loaded, searching for video source...`);
+  const scriptContent = page.$('script:contains(".setup")').html();
+  if (!scriptContent || scriptContent.trim() === "") {
+    ctx.log.warn("[goodstream] No player config found on the page. ");
+    return null;
+  }
+  ctx.log.debug(`[goodstream] Player config script: ${scriptContent.substring(0, 100)}...`);
+  const unpackedArgs = extractContructorJSONArguments(scriptContent.replace('jwplayer("vplayer").setup', "new Setup"));
+  if (!unpackedArgs || !unpackedArgs.sources || unpackedArgs.sources.length < 1) {
+    ctx.log.warn("[goodstream] No sources found in jwplayer setup arguments.");
+    return null;
+  }
+  ctx.log.debug(`[goodstream] Extracted sources: ${JSON.stringify(unpackedArgs.sources)}`);
+  return unpackedArgs.sources.map(
+    (source) => ({
+      fileName: `[Goodstream] ${meta.fileName ?? "Video"}`,
+      format: meta.format || "m3u8",
+      playlist: source.file,
+      language: meta.language,
+      xhr: {
+        haveCorsPolicy: false,
+        headers: {
+          "content-cache": "no-cache",
+          host: new URL(source.file).host,
+          referer: embedURL.origin + "/",
+          origin: embedURL.origin
+        }
+      }
+    })
+  );
+}
+
+// providers/extractors/vimeos.ts
+async function extractVimeosStreams(embedURL, requestOpts, ctx, meta) {
+  const id = embedURL.pathname.split("/").filter(Boolean).pop();
+  if (!embedURL.pathname.includes("embed-")) embedURL.pathname = "/embed-" + id;
+  ctx.log.debug(`[vimeos] Loading embed page: ${embedURL.href}`);
   const iframeHeaders = {
     ...requestOpts.extraHeaders ?? {},
     accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -2003,176 +1985,96 @@ async function extractMixdropStream(embedURL, requestOpts, ctx, meta) {
     followRedirects: true,
     extraHeaders: iframeHeaders
   };
-  const mixdropPage = await ctx.cheerio.load(embedURL, iframeOpts, ctx.xhr);
-  const pageTitle = mixdropPage.$(".title a").text().trim();
-  ctx.log.debug(`[mixdrop] Page title: ${pageTitle}`);
-  const scriptContent = mixdropPage.$('script:contains("MDCore")')?.html();
+  const vimeoPage = await ctx.cheerio.load(embedURL, iframeOpts, ctx.xhr);
+  const scriptContent = vimeoPage.$('script:contains("eval")')?.html();
   if (!scriptContent || scriptContent.trim() === "") {
-    ctx.log.warn("[mixdrop] No MDCore script found on the page.");
+    ctx.log.warn("[vimeos] No eval script found on the page.");
     return null;
   }
   const packedCode = extractEvalCode(scriptContent);
   if (!packedCode) {
-    ctx.log.warn("[mixdrop] No eval-packed code found in MDCore script.");
+    ctx.log.warn("[vimeos] No eval-packed code found in script.");
     return null;
   }
   const unpackedCode = unpackV2(packedCode);
-  ctx.log.info(`[mixdrop] Unpacked code (${unpackedCode.length} chars)`);
-  let videoSource = extractVariableValue(unpackedCode, "MDCore.wurl");
-  if (!videoSource) {
-    ctx.log.warn("[mixdrop] MDCore.wurl not found in unpacked code.");
-    return null;
-  }
-  ctx.log.info(`[mixdrop] Resolved video URL: ${videoSource}`);
-  return {
-    fileName: `[Mixdrop] ${meta.fileName ?? pageTitle ?? "Video"}`,
-    playlist: videoSource,
-    language: meta.language,
-    xhr: {
-      haveCorsPolicy: true,
-      headers: iframeHeaders
-    }
-  };
-}
-
-// providers/extractors/doodstream.ts
-var ALPHANUMERIC = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-var PASS_MD5_REGEX = /\/pass_md5\/([\w-]+)\/([\w]+)/;
-function makePlay(token) {
-  let randomStr = "";
-  for (let i = 0; i < 10; i++) {
-    randomStr += ALPHANUMERIC.charAt(Math.floor(Math.random() * ALPHANUMERIC.length));
-  }
-  return `${randomStr}?token=${token}&expiry=${Date.now()}`;
-}
-async function extractDoodstreamStreams(embedURL, requestOpts, ctx, meta) {
-  const id = embedURL.pathname.split("/").filter(Boolean).pop();
-  embedURL.hostname = "myvidplay.com";
-  const resourceURL = new URL(`/e/${id}`, embedURL.origin);
-  ctx.log.debug(`[doodstream] Loading embed page: ${resourceURL.href}`);
-  const opts = {
-    ...requestOpts,
-    extraHeaders: {
-      ...requestOpts.extraHeaders ?? {},
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "accept-language": "en-US,en;q=0.9,es;q=0.8",
-      "sec-fetch-dest": "iframe",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "cross-site",
-      "sec-fetch-storage-access": "active",
-      "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      cookie: void 0,
-      // Ensure cookies are not sent with the request
-      referer: requestOpts.extraHeaders?.referer ?? embedURL.origin
-      // Ensure referer is set for the initial page load
-    }
-  };
-  const page = await ctx.cheerio.load(resourceURL, opts, ctx.xhr);
-  ctx.log.debug(`[doodstream] Page loaded, searching for pass_md5 pattern...`);
-  const pageTitle = page.$("title").text().trim();
-  const match = page.$.html()?.match(PASS_MD5_REGEX);
-  if (!match) {
-    ctx.log.warn("[doodstream] No pass_md5 pattern found in embed page.");
-    return null;
-  }
-  const passMd5Path = match[0];
-  const hash = match[1];
-  const token = match[2];
-  ctx.log.debug(`[doodstream] Extracted hash: ${hash}, token: ${token}`);
-  const md5URL = new URL(passMd5Path, resourceURL.origin);
-  ctx.log.debug(`[doodstream] Fetching pass_md5 URL: ${md5URL.href}`);
-  const responseData = await ctx.xhr.fetchResponse(
-    md5URL,
-    {
-      attachUserAgent: true,
-      method: "GET",
-      headers: {
-        accept: "*/*",
-        "accept-language": "en-US,en;q=0.9,es;q=0.8",
-        "cache-control": "no-cache",
-        pragma: "no-cache",
-        priority: "u=1, i",
-        "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"Windows"',
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin",
-        "x-requested-with": "XMLHttpRequest",
-        cookie: "lang=1; dref_url=none",
-        Referer: resourceURL.href
-      }
-    },
-    requestOpts
+  ctx.log.info(`[vimeos] Unpacked code (${unpackedCode.length} chars)`);
+  const unpackedArgs = extractContructorJSONArgumentsByName(
+    unpackedCode.replace('jwplayer("vplayer").setup', "new Setup"),
+    "new Setup"
   );
-  if (!responseData) {
-    ctx.log.warn("[doodstream] No response data received from pass_md5 endpoint.");
+  if (!unpackedArgs || !unpackedArgs.sources || unpackedArgs.sources.length < 1) {
+    ctx.log.warn("[vimeos] No sources found in jwplayer setup arguments.");
     return null;
   }
-  const suffix = makePlay(token);
-  const videoUrl = responseData + suffix;
-  ctx.log.debug(`[doodstream] Constructed video URL: ${videoUrl}`);
-  return {
-    fileName: `[Doodstream] ${meta.fileName ?? pageTitle ?? "Video"}`,
-    format: "mp4",
-    playlist: videoUrl,
-    language: meta.language,
-    xhr: {
-      haveCorsPolicy: false,
-      headers: {
-        referer: resourceURL.origin + "/",
-        origin: resourceURL.origin
+  ctx.log.debug(`[vimeos] Extracted sources: ${JSON.stringify(unpackedArgs.sources)}`);
+  return unpackedArgs.sources.map(
+    (source) => ({
+      fileName: `[Vimeos] ${meta.fileName ?? "Video"}`,
+      format: meta.format || "m3u8",
+      playlist: source.file,
+      language: meta.language,
+      xhr: {
+        haveCorsPolicy: false,
+        headers: {
+          "content-cache": "no-cache",
+          host: new URL(source.file).host,
+          referer: embedURL.origin + "/",
+          origin: embedURL.origin
+        }
       }
-    }
-  };
+    })
+  );
 }
 
-// providers/extractors/supervideo.ts
-async function extractSupervideoStreams(embedURL, requestOpts, ctx, meta) {
-  ctx.log.debug(`[supervideo] Loading embed page: ${embedURL.href}`);
+// providers/extractors/filemoon.ts
+async function extractFilemoonStreams(embedURL, requestOpts, ctx, meta) {
+  const id = embedURL.pathname.split("/").filter(Boolean).pop()?.replace("embed-", "");
+  embedURL.pathname = `/e/${id}`;
+  ctx.log.debug(`[filemoon] Loading embed page: ${embedURL.href}`);
   const opts = {
     ...requestOpts,
     followRedirects: true,
     extraHeaders: {
       ...requestOpts.extraHeaders || {},
-      Accept: `text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8`,
-      "Accept-Language": "en-US,en;q=0.9",
-      "Accept-Encoding": "gzip, deflate, br, zstd",
-      Connection: "keep-alive",
-      "Upgrade-Insecure-Requests": "1",
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "none",
-      Priority: "u=0, i",
-      Pragma: "no-cache",
-      "Cache-Control": "no-cache",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "accept-language": "en-US,en;q=0.9,es;q=0.8",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      priority: "u=0, i",
+      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "iframe",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-storage-access": "active",
+      "upgrade-insecure-requests": "1",
       cookie: void 0
       // Ensure cookies are not sent with the request
     }
   };
   const page = await ctx.cheerio.load(embedURL, opts, ctx.xhr);
-  ctx.log.debug(`[supervideo] Page loaded, searching for video source...`);
+  ctx.log.debug(`[filemoon] Page loaded, searching for video source...`);
   const scriptContent = page.$('script:contains("eval")').html();
   if (!scriptContent || scriptContent.trim() === "") {
-    ctx.log.warn("[supervideo] No eval-packed script found on the page.");
+    ctx.log.warn("[filemoon] No eval-packed script found on the page.");
     return null;
   }
-  ctx.log.debug(`[supervideo] Eval-packed script: ${scriptContent.substring(0, 100)}...`);
+  ctx.log.debug(`[filemoon] Eval-packed script: ${scriptContent.substring(0, 100)}...`);
   const unpackedCode = unpackV2(scriptContent);
   if (!unpackedCode) {
-    ctx.log.warn("[supervideo] No eval-packed code found in script.");
+    ctx.log.warn("[filemoon] No eval-packed code found in script.");
     return null;
   }
   const unpackedArgs = extractContructorJSONArguments(unpackedCode.replace('jwplayer("vplayer").setup', "new Setup"));
   if (!unpackedArgs || !unpackedArgs.sources || unpackedArgs.sources.length < 1) {
-    ctx.log.warn("[supervideo] No sources found in jwplayer setup arguments.");
+    ctx.log.warn("[filemoon] No sources found in jwplayer setup arguments.");
     return null;
   }
-  ctx.log.debug(`[supervideo] Extracted sources`);
+  ctx.log.debug(`[filemoon] Extracted sources`);
   return unpackedArgs.sources.map(
     (source) => ({
-      fileName: `[Supervideo] ${meta.fileName ?? "Video"}`,
+      fileName: `[Filemoon] ${meta.fileName ?? "Video"}`,
       format: meta.format || "m3u8",
       playlist: source.file,
       language: meta.language,
@@ -2188,76 +2090,8 @@ async function extractSupervideoStreams(embedURL, requestOpts, ctx, meta) {
   );
 }
 
-// providers/extractors/dropload.ts
-async function extractDroploadStreams(embedURL, requestOpts, ctx, meta) {
-  const id = embedURL.pathname.split("/").filter(Boolean).pop()?.replace("embed-", "");
-  const resourceURL = new URL(`/embed-${id}`, embedURL.origin);
-  ctx.log.debug(`[dropload] Loading embed page: ${resourceURL.href}`);
-  const opts = {
-    ...requestOpts,
-    followRedirects: true,
-    extraHeaders: {
-      ...requestOpts.extraHeaders || {},
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "accept-language": "en-US,en;q=0.9,es;q=0.8",
-      "cache-control": "no-cache",
-      pragma: "no-cache",
-      priority: "u=0, i",
-      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-      "sec-fetch-dest": "iframe",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "cross-site",
-      "sec-fetch-storage-access": "active",
-      "upgrade-insecure-requests": "1",
-      cookie: void 0
-      // Ensure cookies are not sent with the request
-    }
-  };
-  const page = await ctx.cheerio.load(resourceURL, opts, ctx.xhr);
-  ctx.log.debug(`[dropload] Page loaded, searching for video source...`);
-  const scriptContent = page.$('script:contains("eval")').html();
-  if (!scriptContent || scriptContent.trim() === "") {
-    ctx.log.warn("[dropload] No eval-packed script found on the page.");
-    return null;
-  }
-  ctx.log.debug(`[dropload] Eval-packed script: ${scriptContent.substring(0, 100)}...`);
-  const unpackedCode = unpackV2(scriptContent);
-  if (!unpackedCode) {
-    ctx.log.warn("[dropload] No eval-packed code found in script.");
-    return null;
-  }
-  const unpackedArgs = extractContructorJSONArguments(unpackedCode.replace('jwplayer("vplayer").setup', "new Setup"));
-  if (!unpackedArgs || !unpackedArgs.sources || unpackedArgs.sources.length < 1) {
-    ctx.log.warn("[dropload] No sources found in jwplayer setup arguments.");
-    return null;
-  }
-  ctx.log.debug(`[dropload] Extracted sources`);
-  return unpackedArgs.sources.map(
-    (source) => ({
-      fileName: `[Dropload] ${meta.fileName ?? "Video"}`,
-      format: meta.format || "m3u8",
-      playlist: source.file,
-      language: meta.language,
-      xhr: {
-        haveCorsPolicy: true,
-        headers: {
-          host: new URL(source.file).host,
-          referer: resourceURL.origin + "/",
-          origin: resourceURL.origin
-        }
-      }
-    })
-  );
-}
-
-// providers/media/es/repelishd/stream.ts
-var ESCAPED_SLASH_RE = /\\\//;
-var SCRIPT_TAG_RE = /<script[^>]*>[\s\S]*?<\/script>/gi;
-var LINK_TAG_RE = /<link[^>]*\/?>/gi;
+// providers/media/es/lamovie/stream.ts
 async function getStreams(requester, ctx) {
-  if (requester.media.type === "channel") return [];
   const pageRequestOpt = {
     ...requester,
     extraHeaders: {
@@ -2266,6 +2100,7 @@ async function getStreams(requester, ctx) {
       "cache-control": "no-cache",
       pragma: "no-cache",
       priority: "u=0, i",
+      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
       "sec-ch-ua-mobile": "?0",
       "sec-ch-ua-platform": '"Windows"',
       "sec-fetch-dest": "document",
@@ -2273,217 +2108,260 @@ async function getStreams(requester, ctx) {
       "sec-fetch-site": "same-origin",
       "sec-fetch-user": "?1",
       "upgrade-insecure-requests": "1",
-      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
       Referer: new URL(PROVIDER.config.baseUrl).origin + "/"
     }
   };
-  const titleCount = requester.media.localizedTitles.length ?? 0;
-  const searchURLs = deduplicateArray([
-    // First: ID-based search (default createResourceURL)
-    (() => {
-      const resourceIdURL = PROVIDER.createResourceURL(requester);
-      return resourceIdURL.href;
-    })(),
-    // Then: localized title variants following the translation priority order
-    ...Array.from({ length: titleCount + 1 }, (_, i) => {
-      const pattern = "?story={title:form-uri}&do=search&subaction=search";
-      const path = PROVIDER.createPatternString(pattern, requester.media, {}, i);
-      return new URL(path, PROVIDER.config.baseUrl).href;
-    })
-  ]).map((url) => new URL(url));
+  const searchURLs = PROVIDER.createResourceUrls(requester);
   let resourceURL = searchURLs[0];
   let bestResult = null;
-  for (let i = 0; i < searchURLs.length; i++) {
+  for (const [i, url] of searchURLs.entries()) {
     try {
-      resourceURL = searchURLs[i];
+      resourceURL = createSearchURL(url.searchParams.get("q") ?? "", requester);
       ctx.log.debug(`Search attempt ${i + 1}/${searchURLs.length}: ${resourceURL}`);
-      const resultsPage = await ctx.cheerio.load(resourceURL, pageRequestOpt, ctx.xhr);
-      const mediaEntries = resultsPage.$(locators.$results).toArray();
+      const opts = {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        headers: {
+          accept: "application/json",
+          "accept-language": "en-US,en;q=0.9,es;q=0.8",
+          "cache-control": "no-cache",
+          "content-type": "application/json",
+          pragma: "no-cache",
+          priority: "u=1, i",
+          "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"Windows"',
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "same-origin",
+          referer: resourceURL.origin + "/"
+        }
+      };
+      const results2 = await ctx.xhr.fetchResponse(resourceURL, opts, requester);
+      const mediaEntries = results2.data?.posts ?? [];
       ctx.log.debug(`Found ${mediaEntries.length} media entries in search results.`);
-      bestResult = selectBestResult(resultsPage, mediaEntries, requester.media);
+      bestResult = selectBestResult(mediaEntries, requester.media);
       if (bestResult) break;
-      ctx.log.debug(`No match on attempt ${i + 1}, trying next...`);
     } catch (error) {
-      ctx.log.error(`Error during search attempt ${i + 1} with URL ${resourceURL.href}: ${error.message}`);
+      ctx.log.error(`Error during search attempt ${i + 1}: ${error.message}`);
     }
   }
   if (!bestResult) {
-    ctx.log.warn("No best matching result found for the media. Returning empty stream list.");
+    ctx.log.warn("No matching media entry found after evaluating search results.");
     return [];
   }
   ctx.log.debug(`Best matching entry: ${bestResult.inputs.title} (${bestResult.inputs.year}) with score ${bestResult.score}`);
   const bestResourceURL = new URL(bestResult.inputs.entry, resourceURL.origin);
   pageRequestOpt.extraHeaders.Referer = resourceURL.href;
   ctx.log.info(`Created best match location URL: ${bestResourceURL.href}`);
-  const results = [];
   let servers = [];
-  if (requester.media.type === "movie") {
-    const allServers = await extractMoviesServers(requester, ctx) ?? [];
-    servers.push(...allServers);
-  } else if (requester.media.type === "serie") {
-    bestResourceURL.hash = `#season-${requester.media.season}`;
-    ctx.log.info(`Navigating to episode page with URL: ${bestResourceURL.href}`);
-    const episodesPage = await ctx.cheerio.load(bestResourceURL, pageRequestOpt, ctx.xhr);
-    const allServers = await extractSeriesServers(episodesPage, requester, ctx) ?? [];
-    servers.push(...allServers);
+  if (requester.media.type === "serie") {
+    const episodeInfo = await getEpisodeId(bestResult, requester, ctx);
+    if (!episodeInfo) {
+      ctx.log.warn("Could not find episode information for the matched series entry.");
+      return [];
+    }
+    servers.push(...await getServers(episodeInfo._id, bestResult, requester, ctx));
+  } else {
+    servers.push(...await getServers(bestResult.inputs.id, bestResult, requester, ctx));
   }
-  ctx.log.info(`Found servers:
-${servers?.map((s) => JSON.stringify(s)).join(",\n ")}`);
+  if (servers.length === 0) {
+    ctx.log.warn("No streaming servers found for the matched media entry.");
+    return [];
+  }
+  ctx.log.debug(`Found servers:
+${servers.map((s) => JSON.stringify(s)).join("\n")}`);
+  const results = [];
   for (const server of servers) {
     try {
-      if (server.name.includes("mixdrop")) {
-        const id = server.url.split("/").pop() || "";
-        const mixdropURL = new URL(`https://mixdrop.top/e/${id}`);
-        const opts = {
-          ...requester,
-          extraHeaders: {
-            cookie: "PHPSESSID=vbm82pf154krs00pr9psdolsbf",
-            referer: resourceURL.origin + "/"
-          }
-        };
-        const source = await extractMixdropStream(mixdropURL, opts, ctx, { language: requester.targetLanguageISO });
-        if (source) results.push(source);
-        else ctx.log.warn(`Failed to extract stream from Mixdrop URL: ${mixdropURL.href}`);
-      } else if (server.name.includes("doodstream")) {
-        const opts = {
-          ...requester,
-          extraHeaders: {
-            referer: resourceURL.origin + "/"
-          }
-        };
-        const source = await extractDoodstreamStreams(new URL(server.url), opts, ctx, { language: requester.targetLanguageISO });
-        if (source) results.push(source);
-        else ctx.log.warn(`Failed to extract stream from Doodstream URL: ${server.url}`);
-      } else if (server.name.includes("supervideo")) {
-        const opts = {
-          ...requester,
-          extraHeaders: {
-            referer: resourceURL.origin + "/"
-          }
-        };
-        const source = await extractSupervideoStreams(new URL(server.url), opts, ctx, { language: PROVIDER.getPrimaryLanguage() });
-        if (source) results.push(...source);
-        else ctx.log.warn(`Failed to extract stream from Supervideo URL: ${server.url}`);
-      } else if (server.name.includes("dropload")) {
-        const opts = {
-          ...requester,
-          extraHeaders: {
-            referer: resourceURL.origin + "/"
-          }
-        };
-        const sources = await extractDroploadStreams(new URL(server.url), opts, ctx, { language: PROVIDER.getPrimaryLanguage() });
-        if (sources) results.push(...sources);
-        else ctx.log.warn(`Failed to extract stream from Dropload URL: ${server.url}`);
+      ctx.log.info(`Processing server: ${server.serverName} (Language: ${server.lang}, Quality: ${server.quality})`);
+      if (server.serverName.includes("goodstream")) {
+        const source = await extractGoodstreamStreams(new URL(server.url), requester, ctx, {
+          fileName: `HLS ${server.quality}`,
+          format: "m3u8",
+          language: server.lang || "es"
+        });
+        if (source) {
+          results.push(...source);
+        }
+      } else if (server.serverName.includes("vimeos")) {
+        const source = await extractVimeosStreams(new URL(server.url), requester, ctx, {
+          fileName: `HLS ${server.quality}`,
+          format: "m3u8",
+          language: server.lang || "es"
+        });
+        if (source) {
+          results.push(...source);
+        }
+      } else if (server.serverName.includes("filemoon")) {
+        const source = await extractFilemoonStreams(new URL(server.url), requester, ctx, {
+          fileName: `HLS ${server.quality}`,
+          format: "m3u8",
+          language: server.lang || "es"
+        });
+        if (source) {
+          results.push(...source);
+        }
       }
     } catch (error) {
-      ctx.log.error(`Error processing server ${server.name}: ${error.message}`);
+      ctx.log.error(`Error processing server ${server.url}: ${error.message}`);
+      continue;
     }
   }
   return results;
 }
-function selectBestResult(resultsPage, results, media) {
+function selectBestResult(results, media) {
   return results.map((element) => {
-    const entry = resultsPage.$(element).find(locators.$result_entry).attr("href") || "";
-    const title = resultsPage.$(element).find(locators.$result_title).text().trim();
-    const year = resultsPage.$(element).find(locators.$result_year).text().trim();
+    const path = PROVIDER.createPatternString("/{type:string}/{slug:string}/", media, {
+      type: element.type.includes("movie") ? "peliculas" : "series",
+      slug: element.slug
+    });
+    const entry = new URL(path, PROVIDER.config.baseUrl).href;
+    const title = element.original_title || element.title;
+    const es_title = element.title;
+    const year = new Date(element.release_date).getFullYear().toString();
     const score = calculateMatchScore({ title, year }, media);
+    const scoreT = calculateMatchScore({ title: es_title, year }, media);
+    const finalScore = Math.max(score, scoreT);
     return {
       inputs: {
+        id: element._id,
         entry,
         title,
+        es_title,
         year
       },
-      score
+      score: finalScore
     };
-  }).filter((result) => result.score >= 85).sort((a, b) => b.score - a.score).at(0) ?? null;
+  }).filter((result) => result.score >= 100).sort((a, b) => b.score - a.score).at(0) ?? null;
 }
-async function extractMoviesServers(requester, ctx) {
-  const imdbId = requester.media.imdbId;
-  const resourceURL = new URL(`ddl/${imdbId}`, "https://verhdlink.cam");
-  ctx.log.info(`Fetching movie servers from URL: ${resourceURL.href}`);
-  const fetchOpts = {
+async function getEpisodeId(result, requester, ctx) {
+  const media = requester.media;
+  const postPerPage = 15;
+  const targetPage = (media.episode - 1 % 1) % postPerPage;
+  ctx.log.debug(`Fetching episode list for season ${media.season}, page ${targetPage} to find episode ${media.episode}`);
+  const fetchURL = new URL("/wp-api/v1/single/episodes/list", PROVIDER.config.baseUrl);
+  const params = new URLSearchParams({
+    _id: result.inputs.id,
+    season: media.season.toString(),
+    page: targetPage.toString(),
+    postsPerPage: postPerPage.toString()
+  });
+  fetchURL.search = params.toString();
+  ctx.log.debug(`Constructed episode list URL: ${fetchURL.href}`);
+  const opts = {
     method: "GET",
-    clean: true,
     attachUserAgent: true,
+    clean: true,
     headers: {
-      accept: "*/*",
+      accept: "application/json",
       "accept-language": "en-US,en;q=0.9,es;q=0.8",
       "cache-control": "no-cache",
+      "content-type": "application/json",
       pragma: "no-cache",
-      priority: "u=1",
+      priority: "u=1, i",
       "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
       "sec-ch-ua-mobile": "?0",
       "sec-ch-ua-platform": '"Windows"',
-      "sec-fetch-dest": "script",
-      "sec-fetch-mode": "no-cors",
-      "sec-fetch-site": "cross-site",
-      "sec-fetch-storage-access": "active",
-      cookie: "cf_clearance=YyYM9geBrHyRJItMlhvovS2gANi5_j4IIBEeN4yqMEQ-1772311865-1.2.1.1-iEfEm5xb69kea2U2VYqW9kR4nG7kvSLYG0YYvW43udiTSpcnvdtRGRb5jU5q3naoiZITVT1bRzZfv10pRW53w779y_Kls1G.UZjE_OhKZC7OtKdwj3JpQpMdMSXNxAytVcmLIRU1HOhXOHi5XhI9Lt41Tq16xBZvGNaZr_QLm9UjMh3ekOhujJGCsyYzA0bngSGU8HSdRCeiqk0YXo.cTR6ayQ9p4qlc2IgtjAOHIRg",
-      Referer: PROVIDER.config.baseUrl
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      Referer: result.inputs.entry
     }
   };
-  const serverCodeInjection = await ctx.xhr.fetchResponse(resourceURL, fetchOpts, requester);
-  ctx.log.debug(`Received server code response: ${serverCodeInjection?.substring(0, 200)}...`);
-  const html = extractContructorJSONArguments(serverCodeInjection);
-  if (!html || !html[0]) {
-    ctx.log.warn("No HTML found in server code injection.");
+  const responseData = await ctx.xhr.fetchResponse(fetchURL, opts, requester);
+  ctx.log.debug(`Received episode list response with ${responseData.data?.posts?.length ?? 0} episodes`);
+  const episodeEntry = (responseData.data?.posts ?? []).find(
+    (ep) => ep.episode_number === media.episode && ep.season_number === media.season
+  );
+  if (!episodeEntry) {
+    ctx.log.warn(`Episode S${media.season}E${media.episode} not found in episode list.`);
     return null;
   }
-  const htmlContent = html[0].slice(1, -1);
-  ctx.log.debug(`Extracted HTML from server code injection: ${htmlContent?.substring(0, 200)}...`);
-  const cleanedHTML = htmlContent.replace(ESCAPED_SLASH_RE, "/").replace(SCRIPT_TAG_RE, "").replace(LINK_TAG_RE, "");
-  const page$ = ctx.cheerio.$load(cleanedHTML, null, false);
-  const servers = page$(".streams").toArray();
-  ctx.log.info(`Extracted ${servers.length} server entries from the HTML.`);
-  return servers.map((element) => {
-    const serverName = page$(element).find(".streaming").text().trim().toLowerCase();
-    const onclick = page$(element).attr("onclick");
-    const quality = page$(element).find(".quality mark").text().trim();
-    const size = page$(element).find('span[style*="float:right"] span[style*="color:#999"]').text().trim();
-    if (!onclick) {
-      ctx.log.warn(`No onclick attribute found for server entry: ${serverName}`);
-      return null;
-    }
-    const serverURL = extractVariableValue(onclick, "window.parent.location.href");
-    return { name: serverName, url: serverURL, quality, size };
-  }).sort((a, b) => {
-    const priority = ["mixdrop", "doodstream", "supervideo"];
-    const aPriority = priority.findIndex((p) => a?.name.includes(p)) ?? Number.POSITIVE_INFINITY;
-    const bPriority = priority.findIndex((p) => b?.name.includes(p)) ?? Number.POSITIVE_INFINITY;
-    return aPriority - bPriority;
-  }).filter((server) => server !== null && !server.url?.includes("verhdlink"));
+  ctx.log.debug(`Found matching episode entry: S${episodeEntry.season_number}E${episodeEntry.episode_number} with ID ${episodeEntry._id}`);
+  return episodeEntry;
 }
-async function extractSeriesServers(page, requester, ctx) {
-  const $server = page.$(`.dooplay_player .tt_series ul > li`).toArray();
-  ctx.log.info(`Extracted ${$server.length} server entries from the episode page.`);
-  return $server.map((element) => {
-    const dataNum = page.$(element).find("a").first().attr("data-num")?.toLowerCase().trim();
-    const anchors = page.$(element).find("a").toArray();
-    return anchors.map((anchor) => {
-      const serverName = page.$(anchor).text().trim().toLowerCase();
-      const link = page.$(anchor).attr("data-link");
-      if (!link || serverName === "") {
-        ctx.log.warn(`Missing data-link or server name data-num: ${dataNum}, serverName: ${serverName}, link: ${link}`);
-        return null;
-      }
-      return {
-        id: dataNum,
-        name: serverName,
-        url: link,
-        quality: "",
-        size: ""
-      };
-    });
-  }).flat().filter((server) => server !== null).filter((server) => server.id === `${requester.media.season}x${requester.media.episode}`).sort((a, b) => {
-    const priority = ["mixdrop", "doodstream", "supervideo", "dropload"];
-    const aPriority = priority.findIndex((p) => a?.name.includes(p)) ?? Number.POSITIVE_INFINITY;
-    const bPriority = priority.findIndex((p) => b?.name.includes(p)) ?? Number.POSITIVE_INFINITY;
-    return aPriority - bPriority;
-  }).filter((server) => server !== null && !server.url?.includes("verhdlink"));
+async function getServers(mediaId, result, requester, ctx) {
+  const fetchURL = new URL("wp-api/v1/player", PROVIDER.config.baseUrl);
+  const params = new URLSearchParams({
+    postId: mediaId,
+    demo: "0"
+  });
+  fetchURL.search = params.toString();
+  ctx.log.debug(`Constructed API players URL: ${fetchURL.href}`);
+  const opts = {
+    method: "GET",
+    attachUserAgent: true,
+    clean: true,
+    headers: {
+      accept: "application/json",
+      "accept-language": "en-US,en;q=0.9,es;q=0.8",
+      "cache-control": "no-cache",
+      "content-type": "application/json",
+      pragma: "no-cache",
+      priority: "u=1, i",
+      "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      Referer: result.inputs.entry
+    }
+  };
+  const responseData = await ctx.xhr.fetchResponse(fetchURL, opts, requester);
+  ctx.log.debug(`Received players response with ${responseData.data?.embeds?.length ?? 0} embeds servers`);
+  return responseData.data?.embeds.map((embed) => {
+    const nLang = embed.lang.toLowerCase().split("-")[0] || "";
+    const lang = ["es", "en"].includes(nLang) ? nLang : nLang === "latino" ? "es" : nLang === "sub" ? "es" : nLang === "ingles" ? "en" : null;
+    const name = tldts.parse(embed.url).domainWithoutSuffix ?? null;
+    if (!name) return null;
+    return {
+      lang,
+      url: embed.url,
+      quality: embed.quality,
+      serverName: name
+    };
+  }).filter((source) => source !== null).sort((a, b) => {
+    const serversOrder = ["filemoon", "doodstream", "goodstream", "streamtape", "vimeos", "voe"];
+    const aLangPriority = a.lang === "es" ? 0 : 1;
+    const bLangPriority = b.lang === "es" ? 0 : 1;
+    const aServerIdx = serversOrder.indexOf(a.serverName);
+    const bServerIdx = serversOrder.indexOf(b.serverName);
+    const aServerPriority = aServerIdx !== -1 ? aServerIdx : serversOrder.length;
+    const bServerPriority = bServerIdx !== -1 ? bServerIdx : serversOrder.length;
+    if (aLangPriority !== bLangPriority) {
+      return aLangPriority - bLangPriority;
+    }
+    return aServerPriority - bServerPriority;
+  }) ?? [];
+}
+function keyify(input) {
+  if (typeof input !== "string") {
+    console.warn("keyify received non-string, coercing to empty string");
+    input = "";
+  }
+  let result = input.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").trim();
+  result = result.toLowerCase();
+  result = result.replace(/[^\p{L}\p{N} -]+/gu, "");
+  result = result.replace(/\s+/g, "-").replace(/-+/g, "-");
+  return result;
+}
+function createSearchURL(query, requester) {
+  const path = PROVIDER.createPatternString(
+    "/wp-api/v1/search?filter=%7B%7D&postType=any&q={keyify:form-uri}&postsPerPage=26",
+    requester.media,
+    {
+      // The site caps the search term at 16 chars after keyify-then-un-hyphenate
+      keyify: keyify(query).split("-").join(" ").substring(0, 16)
+    }
+  );
+  return new URL(path, PROVIDER.config.baseUrl);
 }
 
-// providers/media/es/repelishd/index.ts
-var index_default = defineProviderModule(PROVIDER, manifest_default.providers["repelishd"], {
+// providers/media/es/lamovie/index.ts
+var index_default = defineProviderModule(PROVIDER, manifest_default.providers["lamovie"], {
   getStreams
 });
 export {

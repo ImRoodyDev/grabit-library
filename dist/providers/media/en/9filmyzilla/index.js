@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AUTO-GENERATED — Do not edit manually                      ║
-// ║  Provider: media/en/9filmyzilla                            ║
+// ║  Provider: 9filmyzilla                                     ║
 // ║  Bundled with esbuild — npx bundle-provider                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -11,10 +11,10 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
 
-// node_modules/grabit-engine/dist/src/core/cheerio.js
+// node_modules/grabit-engine/dist/esm/src/core/cheerio.js
 import * as cheerio from "cheerio";
 
-// node_modules/grabit-engine/dist/src/types/models/Provider.js
+// node_modules/grabit-engine/dist/esm/src/types/models/Provider.js
 var EProviderQueryKey;
 (function(EProviderQueryKey2) {
   EProviderQueryKey2[EProviderQueryKey2["id"] = 0] = "id";
@@ -29,16 +29,16 @@ var EProviderQueryKey;
   EProviderQueryKey2[EProviderQueryKey2["ep_imdb"] = 9] = "ep_imdb";
 })(EProviderQueryKey || (EProviderQueryKey = {}));
 
-// node_modules/grabit-engine/dist/src/types/input/Media.js
+// node_modules/grabit-engine/dist/esm/src/types/input/Media.js
 var MEDIA_TYPES = ["movie", "serie", "channel"];
 
-// node_modules/grabit-engine/dist/src/utils/extractor.js
+// node_modules/grabit-engine/dist/esm/src/utils/extractor.js
 function extractExtension(url) {
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
   return match ? match[1] : null;
 }
 
-// node_modules/grabit-engine/dist/src/utils/logger.js
+// node_modules/grabit-engine/dist/esm/src/utils/logger.js
 var DebugLogger = class {
   isProduction = false;
   timestamp = false;
@@ -144,7 +144,7 @@ var DebugLogger = class {
 };
 var _Logger = new DebugLogger(false, "GRABIT-ENGINE");
 
-// node_modules/grabit-engine/dist/src/utils/standard.js
+// node_modules/grabit-engine/dist/esm/src/utils/standard.js
 var isDevelopment = () => typeof process !== "undefined" && process.env?.ENV !== "production";
 var isNode = () => typeof process !== "undefined" && process.versions != null && process.versions.node != null;
 var isBrowser = () => typeof window !== "undefined" && typeof window.document !== "undefined";
@@ -176,7 +176,7 @@ function deduplicateArray(array) {
   return Array.from(new Set(array));
 }
 
-// node_modules/grabit-engine/dist/src/types/ProcessError.js
+// node_modules/grabit-engine/dist/esm/src/types/ProcessError.js
 var ProcessError = class _ProcessError extends Error {
   /** Unique error code identifier (e.g., 'VALIDATION_ERROR', 'NOT_FOUND') */
   code;
@@ -202,7 +202,7 @@ var ProcessError = class _ProcessError extends Error {
 };
 var isProcessError = (error) => error instanceof ProcessError;
 
-// node_modules/grabit-engine/dist/src/types/HttpError.js
+// node_modules/grabit-engine/dist/esm/src/types/HttpError.js
 var HttpError = class _HttpError extends Error {
   /** Unique error code identifier (e.g., 'VALIDATION_ERROR', 'NOT_FOUND') */
   code;
@@ -240,7 +240,7 @@ var HttpError = class _HttpError extends Error {
 };
 var isHttpError = (error) => error instanceof HttpError;
 
-// node_modules/grabit-engine/dist/src/utils/similarity.js
+// node_modules/grabit-engine/dist/esm/src/utils/similarity.js
 import ParseDuration from "parse-duration";
 function cosineSimilarity(a, b) {
   const vecA = buildVector(a);
@@ -271,7 +271,7 @@ function buildVector(text) {
   return freq;
 }
 
-// node_modules/grabit-engine/dist/src/services/crypto.js
+// node_modules/grabit-engine/dist/esm/src/services/crypto.js
 import Crypto from "crypto";
 if (typeof globalThis.atob === "undefined" || typeof globalThis.btoa === "undefined") {
   try {
@@ -286,7 +286,7 @@ if (typeof globalThis.atob === "undefined" || typeof globalThis.btoa === "undefi
   }
 }
 
-// node_modules/grabit-engine/dist/src/services/cache.js
+// node_modules/grabit-engine/dist/esm/src/services/cache.js
 var Cache = class {
   storage = /* @__PURE__ */ new Map();
   autoCleanupInterval = null;
@@ -391,7 +391,7 @@ var Cache = class {
 };
 var CACHE = new Cache();
 
-// node_modules/grabit-engine/dist/src/services/fetcher.js
+// node_modules/grabit-engine/dist/esm/src/services/fetcher.js
 var _resolvedFetch = null;
 var _resolvedImpitClass = null;
 async function resolveImpitClass() {
@@ -538,9 +538,9 @@ async function appFetch(request, options = {}) {
   };
   const response = await fetch(request, mergedOptions);
   if (cacheKey && cacheTTL && response.ok) {
-    serializeResponse(response).then((serialized) => {
-      CACHE.set(cacheKey, serialized, cacheTTL);
-    });
+    const serialized = await serializeResponse(response);
+    CACHE.set(cacheKey, serialized, cacheTTL);
+    return reconstructResponse(serialized);
   }
   return response;
 }
@@ -549,10 +549,10 @@ async function fetchResponse(request, options) {
   return handleResponse(requestResponse);
 }
 
-// node_modules/grabit-engine/dist/src/controllers/manager.js
+// node_modules/grabit-engine/dist/esm/src/controllers/manager.js
 import pLimit from "p-limit";
 
-// node_modules/grabit-engine/dist/src/utils/path.js
+// node_modules/grabit-engine/dist/esm/src/utils/path.js
 var SFPattern = /\{\s*(\w+)\s*:\s*(\d+|string|uri|form-uri)\s*\}/g;
 var NON_DIGIT_PATTERN = /\D/g;
 var REPLACE_URI_SPACE_PATTERN = /%20/g;
@@ -629,7 +629,7 @@ function pathJoin(...parts) {
   }).filter((part) => part.length > 0).join("/");
 }
 
-// node_modules/grabit-engine/dist/src/utils/validator.js
+// node_modules/grabit-engine/dist/esm/src/utils/validator.js
 import { isURL } from "validator";
 var SCHEME_REGEX = /^[a-z][a-z0-9._-]*$/;
 var VERSION_REGEX = /^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$/;
@@ -774,7 +774,7 @@ function validateManifestConfiguration(provider, manifest) {
   }
 }
 
-// node_modules/grabit-engine/dist/src/services/github.js
+// node_modules/grabit-engine/dist/esm/src/services/github.js
 var GithubService;
 (function(GithubService2) {
   const GITHUB_REGEX = [/^https?:\/\/github\.com\/([^/]+)\/([^/.]+)(\.git)?$/, /^github\.com\/([^/]+)\/([^/.]+)(\.git)?$/, /^([^/]+)\/([^/]+)$/];
@@ -888,16 +888,28 @@ var GithubService;
     const modules = {};
     for (const [scheme, manifest] of Object.entries(providers)) {
       let sourceCode;
+      const fetchPath = `${pathJoin(manifest.dir, scheme)}/index.js`;
+      const fullApiUrl = `https://api.github.com/repos/${opts.owner}/${opts.repo}/contents/${opts.rootDir}${fetchPath}?ref=${opts.branch}`;
       try {
-        sourceCode = await fetchFileFromGitHub(opts, `${pathJoin(manifest.dir, scheme)}/index.js`);
+        sourceCode = await fetchFileFromGitHub(opts, fetchPath);
       } catch (error) {
+        _Logger.error(`[GithubService] Failed to fetch source for provider "${scheme}":
+  URL: ${fullApiUrl}
+  rootDir: "${opts.rootDir || "(none)"}"
+  manifest.dir: "${manifest.dir ?? "(none)"}"
+  Error: ${error instanceof Error ? error.message : error}`);
         modules[scheme] = null;
         continue;
       }
-      if (moduleResolver) {
-        modules[scheme] = await moduleResolver(scheme, sourceCode);
-      } else if (isNode()) {
-        modules[scheme] = await defaultNodeResolver(scheme, sourceCode);
+      try {
+        if (moduleResolver) {
+          modules[scheme] = await moduleResolver(scheme, sourceCode);
+        } else if (isNode()) {
+          modules[scheme] = await defaultNodeResolver(scheme, sourceCode);
+        }
+      } catch (error) {
+        _Logger.error(`[GithubService] Failed to resolve module for provider "${scheme}": ${error instanceof Error ? error.message : error}`);
+        modules[scheme] = null;
       }
     }
     return modules;
@@ -927,7 +939,7 @@ var GithubService;
   }
 })(GithubService || (GithubService = {}));
 
-// node_modules/grabit-engine/dist/src/services/registry.js
+// node_modules/grabit-engine/dist/esm/src/services/registry.js
 var RegistryService;
 (function(RegistryService2) {
   async function initializeProviders(source) {
@@ -961,7 +973,7 @@ var RegistryService;
   RegistryService2.getManifest = getManifest;
 })(RegistryService || (RegistryService = {}));
 
-// node_modules/grabit-engine/dist/src/services/require.js
+// node_modules/grabit-engine/dist/esm/src/services/require.js
 var RequireService;
 (function(RequireService2) {
   async function initializeProviders(source) {
@@ -991,7 +1003,7 @@ var RequireService;
   RequireService2.getManifest = getManifest;
 })(RequireService || (RequireService = {}));
 
-// node_modules/grabit-engine/dist/src/services/tmdb.js
+// node_modules/grabit-engine/dist/esm/src/services/tmdb.js
 var TMDB;
 (function(TMDB2) {
   const API_BASE_URL = "https://api.themoviedb.org/3";
@@ -1132,7 +1144,8 @@ error: ${error.message}`);
   TMDB2.createRequesterMedia = createRequesterMedia;
 })(TMDB || (TMDB = {}));
 
-// node_modules/grabit-engine/dist/src/controllers/provider.js
+// node_modules/grabit-engine/dist/esm/src/controllers/provider.js
+import { default as ISO6391 } from "iso-639-1";
 function defineProviderModule(_this, manifest, workers) {
   return {
     meta: manifest,
@@ -1160,7 +1173,7 @@ function createModuleWorkers(provider, manifest, workers) {
               })
             },
             format,
-            fileName: `[${manifest.name}][${format.toUpperCase()}] - ${default2.getName(source.language)} - ${source.fileName ?? "Source"} `,
+            fileName: `[${manifest.name}][${format.toUpperCase()}] - ${ISO6391.getName(source.language)} - ${source.fileName ?? "Source"} `,
             providerName: manifest.name,
             scheme: provider.config.scheme
           };
@@ -1227,165 +1240,10 @@ async function validateSubtitleSources(sources, requester, context) {
   });
 }
 
-// node_modules/grabit-engine/dist/src/services/unpacker.js
-var UNPACK_LOOKUP = /\b\w+\b/g;
-var JUICERS = [/}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'\.split\('\|'\), *(\d+), *(.*)\)\)/, /}\('(.*)', *(\d+|\[\]), *(\d+), *'(.*)'\.split\('\|'\)/];
-function detectPacked(source) {
-  return source.replace(" ", "").startsWith("eval(function(p,a,c,k,e,");
-}
-function unpackV2(source) {
-  let { payload, symtab, radix, count } = _filterargs(source);
-  if (count != symtab.length) {
-    throw new ProcessError({
-      code: "UNPACKER_ERROR",
-      message: "Malformed p.a.c.k.e.r. symtab.",
-      status: 500,
-      expose: false
-    });
-  }
-  let unbase;
-  try {
-    unbase = new Unbaser(radix);
-  } catch (e) {
-    throw new ProcessError({
-      code: "UNPACKER_ERROR",
-      message: e instanceof Error ? `Error initializing Unbaser: ${e.message}` : "Error initializing Unbaser",
-      status: 500,
-      expose: false
-    });
-  }
-  function lookup(match) {
-    const word = match;
-    let word2;
-    if (radix == 1) {
-      word2 = symtab[parseInt(word)];
-    } else {
-      word2 = symtab[unbase.unbase(word)];
-    }
-    return word2 || word;
-  }
-  source = payload.replace(UNPACK_LOOKUP, lookup);
-  return _replacestrings(source);
-  function _filterargs(source2) {
-    for (const juicer of JUICERS) {
-      const args = juicer.exec(source2);
-      if (args) {
-        let a = args;
-        if (a[2] == "[]") {
-        }
-        try {
-          return {
-            payload: a[1],
-            symtab: a[4].split("|"),
-            radix: parseInt(a[2]),
-            count: parseInt(a[3])
-          };
-        } catch (ValueError) {
-          throw new ProcessError({
-            code: "UNPACKER_ERROR",
-            message: "Corrupted p.a.c.k.e.r. data.",
-            status: 500,
-            expose: false
-          });
-        }
-      }
-    }
-    throw new ProcessError({
-      code: "UNPACKER_ERROR",
-      message: "Could not make sense of p.a.c.k.e.r data (unexpected code structure)",
-      status: 500,
-      expose: false
-    });
-  }
-  function _replacestrings(source2) {
-    return source2;
-  }
-}
-function disabled_unpackV1(code) {
-  function indent(codeLines) {
-    try {
-      var tabs = 0, old = -1, add = "";
-      for (var i = 0; i < codeLines.length; i++) {
-        if (codeLines[i].indexOf("{") != -1)
-          tabs++;
-        if (codeLines[i].indexOf("}") != -1)
-          tabs--;
-        if (old != tabs) {
-          old = tabs;
-          add = "";
-          while (old > 0) {
-            add += "	";
-            old--;
-          }
-          old = tabs;
-        }
-        codeLines[i] = add + codeLines[i];
-      }
-    } finally {
-      tabs = null;
-      old = null;
-      add = null;
-    }
-    return codeLines;
-  }
-  var env = {
-    eval: function(c) {
-      code = c;
-    },
-    window: {},
-    document: {}
-  };
-  eval("with(env) {" + code + "}");
-  var codeWithNewLines = (code + "").replace(/;/g, ";\n").replace(/{/g, "\n{\n").replace(/}/g, "\n}\n").replace(/\n;\n/g, ";\n").replace(/\n\n/g, "\n");
-  var splitLines = codeWithNewLines.split("\n");
-  splitLines = indent(splitLines);
-  return splitLines.join("\n");
-}
-var Unbaser = class {
-  ALPHABET = {
-    62: "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-    95: "' !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'"
-  };
-  base;
-  dictionary = {};
-  constructor(base) {
-    this.base = base;
-    if (36 < base && base < 62) {
-      this.ALPHABET[base] = this.ALPHABET[base] || this.ALPHABET[62].substr(0, base);
-    }
-    if (2 <= base && base <= 36) {
-      this.unbase = (value) => parseInt(value, base);
-    } else {
-      try {
-        [...this.ALPHABET[base]].forEach((cipher, index) => {
-          this.dictionary[cipher] = index;
-        });
-      } catch (er) {
-        throw new ProcessError({
-          code: "UNPACKER_ERROR",
-          message: "Unsupported base encoding.",
-          status: 500,
-          expose: false
-        });
-      }
-      this.unbase = this._dictunbaser;
-    }
-  }
-  unbase;
-  /** Decodes a value to an integer. */
-  _dictunbaser(value) {
-    let ret = 0;
-    [...value].reverse().forEach((cipher, index) => {
-      ret = ret + this.base ** index * this.dictionary[cipher];
-    });
-    return ret;
-  }
-};
-
-// node_modules/grabit-engine/dist/src/services/tldts.js
+// node_modules/grabit-engine/dist/esm/src/services/tldts.js
 import * as _tldts from "tldts";
 
-// node_modules/grabit-engine/dist/src/models/provider.js
+// node_modules/grabit-engine/dist/esm/src/models/provider.js
 function normalizeLanguages(language) {
   return Array.isArray(language) ? language : [language];
 }
@@ -1640,13 +1498,7 @@ var Provider = class _Provider {
   }
 };
 
-// node_modules/grabit-engine/dist/src/hooks/useManager.js
-import { useEffect, useRef, useState } from "react";
-
-// node_modules/grabit-engine/dist/src/hooks/useScraper.js
-import { useCallback, useEffect as useEffect2, useRef as useRef2, useState as useState2 } from "react";
-
-// node_modules/grabit-engine/dist/src/index.js
+// node_modules/grabit-engine/dist/esm/src/index.node.js
 import { default as default2 } from "iso-639-1";
 
 // manifest.json
