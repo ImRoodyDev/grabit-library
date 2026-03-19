@@ -254,16 +254,6 @@ async function extractStreamingLinkFromPage(
 	return null;
 }
 
-function toPuppeteerHeaders(headers: ProviderFetchOptions['headers']): PuppeteerHeaders {
-	const normalizedHeaders: PuppeteerHeaders = {};
-	for (const [key, value] of Object.entries(headers ?? {})) {
-		if (typeof value === 'string') {
-			normalizedHeaders[key] = value;
-		}
-	}
-	return normalizedHeaders;
-}
-
 async function getKeyCookies(
 	pageRequestOpt: CheerioLoadRequest,
 	requester: ScrapeRequester,
@@ -481,16 +471,16 @@ async function getServers(
 				);
 			}
 
-			// Load browser session
+			// Browser session fallback
+			console.log('--- Browser Session Fallback ---');
 			let streamingSession: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;
 			try {
+				// Load browser session
 				streamingSession = await ctx.puppeteer.launch(serverURL, {
 					requester,
 					browsingOptions: {
 						ignoreError: true,
-						closeOnComplete: false,
 						loadCriteria: 'networkidle0',
-						// extraHeaders: toPuppeteerHeaders(resolveOpts.headers),
 					},
 				});
 
@@ -506,10 +496,10 @@ async function getServers(
 					file_name: server.file_name,
 					file_size: server.file_size,
 				});
+			} catch (error) {
+				ctx.log.error(`Error during browser session for server ${server.name} (key: ${server.key}): ${error}`);
 			} finally {
-				await streamingSession?.browser.close().catch((closeError) => {
-					ctx.log.debug(`Failed to close Primewire browser session for ${server.name}: ${closeError}`);
-				});
+				await streamingSession?.browser.close().catch(() => null);
 			}
 		} catch (error) {
 			ctx.log.error(`Error resolving server ${server.name} (key: ${server.key}): ${error}`);

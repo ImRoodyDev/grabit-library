@@ -1665,9 +1665,10 @@ function createModuleWorkers(provider, manifest, workers) {
             scheme: provider.config.scheme
           };
         });
+        const sorted = sortByTargetLanguage(withMeta, requester.targetLanguageISO);
         if (!shouldValidate)
-          return withMeta;
-        return validateMediaSources(withMeta, requester, context);
+          return sorted;
+        return validateMediaSources(sorted, requester, context);
       } catch (error) {
         const logEntry = describeProviderWorkerError("getStreams", manifest, error);
         context.log.error(logEntry.summary);
@@ -1693,9 +1694,10 @@ function createModuleWorkers(provider, manifest, workers) {
           providerName: manifest.name,
           scheme: provider.config.scheme
         }));
+        const sorted = sortByTargetLanguage(withMeta, requester.targetLanguageISO);
         if (!shouldValidate)
-          return withMeta;
-        return validateSubtitleSources(withMeta, requester, context);
+          return sorted;
+        return validateSubtitleSources(sorted, requester, context);
       } catch (error) {
         const logEntry = describeProviderWorkerError("getSubtitles", manifest, error);
         context.log.error(logEntry.summary);
@@ -1707,6 +1709,17 @@ function createModuleWorkers(provider, manifest, workers) {
     } : void 0
   };
 }
+function sortByTargetLanguage(sources, targetLanguageISO) {
+  const matches = [];
+  const rest = [];
+  for (const source of sources) {
+    if (source.language === targetLanguageISO)
+      matches.push(source);
+    else
+      rest.push(source);
+  }
+  return [...matches, ...rest];
+}
 async function validateMediaSources(sources, requester, context) {
   const results = await Promise.all(sources.map(async (source) => {
     const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
@@ -1715,11 +1728,7 @@ async function validateMediaSources(sources, requester, context) {
     const { ok } = await context.xhr.status(url, { attachUserAgent: true, attachProxy: true, headers: source.xhr.headers }, requester);
     return ok ? source : null;
   }));
-  return results.filter((s) => s !== null).sort((a, b) => {
-    const aMatch = a.language === requester.targetLanguageISO ? 0 : 1;
-    const bMatch = b.language === requester.targetLanguageISO ? 0 : 1;
-    return aMatch - bMatch;
-  });
+  return results.filter((s) => s !== null);
 }
 async function validateSubtitleSources(sources, requester, context) {
   const results = await Promise.all(sources.map(async (source) => {
@@ -1728,11 +1737,7 @@ async function validateSubtitleSources(sources, requester, context) {
     const { ok } = await context.xhr.status(source.url, { attachUserAgent: true, attachProxy: true, headers: source.xhr.headers }, requester);
     return ok ? source : null;
   }));
-  return results.filter((s) => s !== null).sort((a, b) => {
-    const aMatch = a.language === requester.targetLanguageISO ? 0 : 1;
-    const bMatch = b.language === requester.targetLanguageISO ? 0 : 1;
-    return aMatch - bMatch;
-  });
+  return results.filter((s) => s !== null);
 }
 
 // node_modules/grabit-engine/dist/esm/src/utils/path.js
@@ -2777,15 +2782,15 @@ async function getServers(targetURL, cookies, requester, ctx) {
           `API resolution failed for server ${server.name} (key: ${server.key}), falling back to browser session. Error: ${error}`
         );
       }
+      console.log("--- Browser Session Fallback ---");
       let streamingSession = null;
       try {
         streamingSession = await ctx.puppeteer.launch(serverURL, {
           requester,
           browsingOptions: {
+            closeOnComplete: true,
             ignoreError: true,
-            closeOnComplete: false,
             loadCriteria: "networkidle0"
-            // extraHeaders: toPuppeteerHeaders(resolveOpts.headers),
           }
         });
         const streamingLink = await extractStreamingLinkFromPage(streamingSession.page, ctx);
@@ -2800,10 +2805,10 @@ async function getServers(targetURL, cookies, requester, ctx) {
           file_name: server.file_name,
           file_size: server.file_size
         });
+      } catch (error) {
+        ctx.log.error(`Error during browser session for server ${server.name} (key: ${server.key}): ${error}`);
       } finally {
-        await streamingSession?.browser.close().catch((closeError) => {
-          ctx.log.debug(`Failed to close Primewire browser session for ${server.name}: ${closeError}`);
-        });
+        if (streamingSession) await streamingSession.page.close().catch(() => null);
       }
     } catch (error) {
       ctx.log.error(`Error resolving server ${server.name} (key: ${server.key}): ${error}`);
