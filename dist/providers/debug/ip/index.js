@@ -2020,7 +2020,7 @@ var manifest_default = {
     ip: {
       name: "Ipadress Checker",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: "en",
       type: "media",
       env: "universal",
@@ -2099,7 +2099,7 @@ var manifest_default = {
       version: "1.0.0",
       active: true,
       language: "*",
-      type: "media",
+      type: "subtitle",
       env: "universal",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,

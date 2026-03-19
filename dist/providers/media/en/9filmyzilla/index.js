@@ -2050,7 +2050,7 @@ var manifest_default = {
     ip: {
       name: "Ipadress Checker",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: "en",
       type: "media",
       env: "universal",
@@ -2129,7 +2129,7 @@ var manifest_default = {
       version: "1.0.0",
       active: true,
       language: "*",
-      type: "media",
+      type: "subtitle",
       env: "universal",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
@@ -2142,7 +2142,7 @@ var manifest_default = {
 var config = {
   scheme: "9filmyzilla",
   name: "9filmyzilla",
-  language: "en",
+  language: ["en", "es"],
   baseUrl: "https://9filmyzilla.rest/",
   entries: {
     search_movie: {

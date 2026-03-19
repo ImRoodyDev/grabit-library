@@ -1,6 +1,6 @@
 // Scraping
 npx test-provider --scheme primewire --media-file ./test/wrecking-crew.json
-npx test-provider --scheme lamovie  --media-file ./test/inception.json
+npx test-provider --scheme primewire  --media-file ./test/inception.json
 npx test-provider --scheme lamovie  --media-file ./test/stranger-things_s1ep1.json
 npx test-provider --scheme lamovie  --media-file ./test/supernatural_s1e1.json
 npx test-provider --scheme lamovie  --media-file ./test/baddies-usa.json 
