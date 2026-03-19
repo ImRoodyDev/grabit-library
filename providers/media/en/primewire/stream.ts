@@ -472,7 +472,7 @@ async function getServers(
 			}
 
 			// Browser session fallback
-			console.log('--- Browser Session Fallback ---');
+			ctx.log.info('--- Browser Session Fallback ---');
 			let streamingSession: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;
 			try {
 				// Load browser session
