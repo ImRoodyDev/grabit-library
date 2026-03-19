@@ -4,6 +4,7 @@
 // ║  Bundled with esbuild — npx bundle-provider                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
+"use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -12,6 +13,10 @@ var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -29,10 +34,11 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/iso-639-1/src/data.js
 var require_data = __commonJS({
-  "node_modules/iso-639-1/src/data.js"(exports, module) {
+  "node_modules/iso-639-1/src/data.js"(exports2, module2) {
     var LANGUAGES_LIST = {
       aa: {
         name: "Afar",
@@ -767,13 +773,13 @@ var require_data = __commonJS({
         nativeName: "isiZulu"
       }
     };
-    module.exports = LANGUAGES_LIST;
+    module2.exports = LANGUAGES_LIST;
   }
 });
 
 // node_modules/iso-639-1/src/index.js
 var require_src = __commonJS({
-  "node_modules/iso-639-1/src/index.js"(exports, module) {
+  "node_modules/iso-639-1/src/index.js"(exports2, module2) {
     var LANGUAGES_LIST = require_data();
     var LANGUAGES = {};
     var LANGUAGES_BY_NAME = {};
@@ -787,7 +793,7 @@ var require_src = __commonJS({
       LANGUAGE_NAMES.push(name);
       LANGUAGE_NATIVE_NAMES.push(nativeName);
     }
-    module.exports = class ISO63912 {
+    module2.exports = class ISO63912 {
       static getLanguages(codes = []) {
         return codes.map(
           (code) => ISO63912.validate(code) ? Object.assign({}, LANGUAGES[code]) : { code, name: "", nativeName: "" }
@@ -821,7 +827,7 @@ var require_src = __commonJS({
 
 // node_modules/tldts/dist/cjs/index.js
 var require_cjs = __commonJS({
-  "node_modules/tldts/dist/cjs/index.js"(exports) {
+  "node_modules/tldts/dist/cjs/index.js"(exports2) {
     "use strict";
     function shareSameDomainSuffix(hostname, vhost) {
       if (hostname.endsWith(vhost)) {
@@ -1262,14 +1268,21 @@ var require_cjs = __commonJS({
       resetResult(RESULT);
       return parseImpl(url, 5, suffixLookup, options, RESULT).domainWithoutSuffix;
     }
-    exports.getDomain = getDomain;
-    exports.getDomainWithoutSuffix = getDomainWithoutSuffix;
-    exports.getHostname = getHostname;
-    exports.getPublicSuffix = getPublicSuffix;
-    exports.getSubdomain = getSubdomain;
-    exports.parse = parse2;
+    exports2.getDomain = getDomain;
+    exports2.getDomainWithoutSuffix = getDomainWithoutSuffix;
+    exports2.getHostname = getHostname;
+    exports2.getPublicSuffix = getPublicSuffix;
+    exports2.getSubdomain = getSubdomain;
+    exports2.parse = parse2;
   }
 });
+
+// providers/debug/ip/index.ts
+var index_exports = {};
+__export(index_exports, {
+  default: () => index_default
+});
+module.exports = __toCommonJS(index_exports);
 
 // node_modules/grabit-engine/dist/esm/src/utils/extractor.js
 function extractExtension(url) {
@@ -1319,6 +1332,7 @@ var ProcessError = class _ProcessError extends Error {
     Error.captureStackTrace?.(this, _ProcessError);
   }
 };
+var isProcessError = (error) => error instanceof ProcessError;
 
 // node_modules/grabit-engine/dist/esm/src/utils/logger.js
 var DebugLogger = class {
@@ -1458,7 +1472,8 @@ function deduplicateArray(array) {
 // node_modules/grabit-engine/dist/esm/src/utils/validator.js
 function validateManifestConfiguration(provider, manifest) {
   const config2 = provider.config;
-  const prefix = `\x1B[41m\x1B[37m ${manifest.name} \x1B[0m`;
+  const label = `${manifest.name || config2.name || "unknown-provider"} (${config2.scheme || "unknown-scheme"})`;
+  const prefix = `[${label}]`;
   if (config2.name !== manifest.name) {
     _Logger.alwaysWarn(`${prefix} Provider config name "${config2.name}" does not match manifest name "${manifest.name}".`);
   }
@@ -1483,6 +1498,26 @@ function validateManifestConfiguration(provider, manifest) {
 }
 
 // node_modules/grabit-engine/dist/esm/src/controllers/provider.js
+function describeProviderWorkerError(workerName, manifest, error) {
+  const base = `Provider ${manifest.name} ${workerName} failed`;
+  if (isProcessError(error)) {
+    const details = typeof error.details === "string" ? error.details : void 0;
+    return {
+      summary: `${base} [${error.code}]: ${error.message}`,
+      details
+    };
+  }
+  if (error instanceof Error) {
+    return {
+      summary: `${base}: ${error.message}`,
+      details: error.stack
+    };
+  }
+  return {
+    summary: `${base}: ${String(error)}`,
+    details: void 0
+  };
+}
 function defineProviderModule(_this, manifest, workers) {
   return {
     meta: manifest,
@@ -1519,7 +1554,11 @@ function createModuleWorkers(provider, manifest, workers) {
           return withMeta;
         return validateMediaSources(withMeta, requester, context);
       } catch (error) {
-        context.log.error(`Error in getStreams of provider ${manifest.name}:`, error);
+        const logEntry = describeProviderWorkerError("getStreams", manifest, error);
+        context.log.error(logEntry.summary);
+        if (logEntry.details) {
+          context.log.debug(`Provider ${manifest.name} getStreams details`, logEntry.details);
+        }
         throw error;
       }
     } : void 0,
@@ -1543,7 +1582,11 @@ function createModuleWorkers(provider, manifest, workers) {
           return withMeta;
         return validateSubtitleSources(withMeta, requester, context);
       } catch (error) {
-        context.log.error(`Error in getSubtitles of provider ${manifest.name}:`, error);
+        const logEntry = describeProviderWorkerError("getSubtitles", manifest, error);
+        context.log.error(logEntry.summary);
+        if (logEntry.details) {
+          context.log.debug(`Provider ${manifest.name} getSubtitles details`, logEntry.details);
+        }
         throw error;
       }
     } : void 0
@@ -1943,7 +1986,28 @@ function parse(str = "", format = "ms") {
 }
 
 // provider-shim:grabit-engine-provider-crypto-shim
-import Crypto from "crypto";
+var runtimeRequire = typeof require === "function" ? require : void 0;
+var globalCryptoCandidates = [globalThis.__grabitCrypto, globalThis.Crypto, globalThis.crypto];
+var isReactNative = typeof navigator !== "undefined" && navigator.product === "ReactNative";
+var Crypto;
+if (runtimeRequire) {
+  const moduleNames = isReactNative ? ["react-native-quick-crypto", "crypto"] : ["crypto", "react-native-quick-crypto"];
+  for (const moduleName of moduleNames) {
+    try {
+      Crypto = runtimeRequire(moduleName);
+      if (Crypto) break;
+    } catch {
+    }
+  }
+}
+if (!Crypto) {
+  Crypto = globalCryptoCandidates.find((candidate) => candidate && typeof candidate.createHash === "function");
+}
+if (!Crypto) {
+  throw new Error(
+    'Crypto is not available in this runtime. In React Native, install react-native-quick-crypto and expose it via require("react-native-quick-crypto") or set globalThis.__grabitCrypto/globalThis.crypto before evaluating GitHub provider bundles.'
+  );
+}
 
 // provider-shim:grabit-engine-provider-shim
 var import_iso_639_12 = __toESM(require_src());
@@ -2110,6 +2174,3 @@ var index_default = defineProviderModule(PROVIDER, manifest_default.providers["i
   getStreams,
   getSubtitles
 });
-export {
-  index_default as default
-};
