@@ -2729,7 +2729,11 @@ async function getServers(targetURL, cookies, requester, ctx) {
   const rawServers = serverResponse.servers.filter((server) => server.key !== void 0);
   ctx.log.debug(`Received ${rawServers.length} raw servers from API.`);
   const validServers = rawServers.filter(
-    (server) => ["filemoon", "mixdrop"].includes(server.name.toLowerCase()) && server.key
+    (server) => [
+      ,
+      /*'filemoon'*/
+      "mixdrop"
+    ].includes(server.name.toLowerCase()) && server.key
   );
   ctx.log.info(`Filtered valid servers: ${validServers.length} out of ${rawServers.length}.`);
   const resolved = [];
@@ -2737,27 +2741,34 @@ async function getServers(targetURL, cookies, requester, ctx) {
     try {
       const serverURL = new URL(`/links/go/${server.key}?embed=true`, PROVIDER.config.baseUrl);
       ctx.log.debug(`Resolving server ${server.name} with URL: ${serverURL.href}`);
-      const streamingSession = await ctx.puppeteer.launch(serverURL, {
-        requester,
-        browsingOptions: {
-          ignoreError: true,
-          closeOnComplete: false,
-          loadCriteria: "networkidle0"
-          // extraHeaders: toPuppeteerHeaders(resolveOpts.headers),
+      let streamingSession = null;
+      try {
+        streamingSession = await ctx.puppeteer.launch(serverURL, {
+          requester,
+          browsingOptions: {
+            ignoreError: true,
+            closeOnComplete: false,
+            loadCriteria: "networkidle0"
+            // extraHeaders: toPuppeteerHeaders(resolveOpts.headers),
+          }
+        });
+        const streamingLink = await extractStreamingLinkFromPage(streamingSession.page, ctx);
+        if (!streamingLink?.link) {
+          ctx.log.warn(`Primewire returned no streaming link for server ${server.name} (key: ${server.key}).`);
+          continue;
         }
-      });
-      const streamingLink = await extractStreamingLinkFromPage(streamingSession.page, ctx);
-      if (!streamingLink?.link) {
-        ctx.log.warn(`Primewire returned no streaming link for server ${server.name} (key: ${server.key}).`);
-        continue;
+        resolved.push({
+          name: server.name.toLowerCase(),
+          url: streamingLink.link,
+          quality: server.quality,
+          file_name: server.file_name,
+          file_size: server.file_size
+        });
+      } finally {
+        await streamingSession?.browser.close().catch((closeError) => {
+          ctx.log.debug(`Failed to close Primewire browser session for ${server.name}: ${closeError}`);
+        });
       }
-      resolved.push({
-        name: server.name.toLowerCase(),
-        url: streamingLink.link,
-        quality: server.quality,
-        file_name: server.file_name,
-        file_size: server.file_size
-      });
     } catch (error) {
       ctx.log.error(`Error resolving server ${server.name} (key: ${server.key}): ${error}`);
     }

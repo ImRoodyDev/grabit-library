@@ -2464,7 +2464,7 @@ var manifest_default = {
 var config = {
   scheme: "repelishd",
   name: "Repelishd",
-  language: "es",
+  language: ["es", "en", "fr"],
   baseUrl: "https://repelishd.run",
   entries: {
     movie: {
