@@ -47,8 +47,7 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 			'sec-fetch-user': '?1',
 			'upgrade-insecure-requests': '1',
 			TE: 'trailers',
-			cookie:
-				'visitor_info={%22domain%22:%22primewire.si%22%2C%22uuid%22:%22a7e9fd5e-9d31-4a8a-96a4-0f0944ba798a%22%2C%22mouse_moved%22:true%2C%22suspected_bot%22:null%2C%22adblock%22:false}',
+			cookie: `visitor_info={%22domain%22:%22primewire.si%22%2C%22uuid%22:%22c11d1745-cbca-4ded-bc6f-baf247d5775c%22%2C%22mouse_moved%22:true%2C%22suspected_bot%22:null%2C%22adblock%22:false};cf_clearance=ltoiF1P.tXyph8NiUKY97otV9WJRW_h1zStICwaak_8-1773891180-1.2.1.1-ZvT_pb681AZGSoWRMI6sP0IRQezt0ZRDOp40eYeHRfOxBekyRgna..e7y7y9PX.HqUlAySnJoNVm9n5mCj_fZPpC4wOAQMDN25_Dx50kPH.ezoC_7oWITfdXgRsyNZsXmm8MdvWhojRn660bDClg5hX6fsjmEghJpVhIKRvEquOF_bt.qSg5J_0Cm4BrhMBU4vSLBZA_cFnWVx0JyKya.vEiG4gUWzmJ33.jFXNRPXQ`,
 			Referer: new URL(PROVIDER.config.baseUrl).origin + '/',
 		},
 	} satisfies CheerioLoadRequest;
@@ -67,7 +66,13 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 		})(),
 		// Then: localized title variants following the translation priority order
 		...Array.from({ length: titleCount + 1 }, (_, i) => {
-			const localizedIndex = PROVIDER.useTranslation(requester.media) ? (i < titleCount ? i : null) : i === 0 ? null : i - 1;
+			const localizedIndex = PROVIDER.useTranslation(requester.media)
+				? i < titleCount
+					? i
+					: null
+				: i === 0
+					? null
+					: i - 1;
 			const queryURL = PROVIDER.createResourceURL(requester, localizedIndex);
 			const encodedTitle =
 				localizedIndex == null
@@ -204,9 +209,66 @@ type StreamingLink = {
 	host: string;
 };
 
+type PuppeteerHeaders = Record<string, string>;
+
 // --- Helper Functions ---
 
-async function getKeyCookies(pageRequestOpt: CheerioLoadRequest, requester: ScrapeRequester, ctx: ProviderContext): Promise<string | null> {
+function parseStreamingLinkPayload(rawPayload: string, ctx: ProviderContext): StreamingLink | null {
+	const payload = rawPayload.trim();
+	if (!payload) return null;
+
+	try {
+		const parsed = JSON.parse(payload) as Partial<StreamingLink>;
+		if (typeof parsed.link !== 'string' || parsed.link.trim() === '') return null;
+		return {
+			link: parsed.link,
+			host_id: typeof parsed.host_id === 'number' ? parsed.host_id : 0,
+			host: typeof parsed.host === 'string' ? parsed.host : '',
+		};
+	} catch (error) {
+		ctx.log.debug(`Failed to parse Primewire streaming payload as JSON: ${error}`);
+		return null;
+	}
+}
+
+async function extractStreamingLinkFromPage(
+	page: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>>['page'],
+	ctx: ProviderContext,
+): Promise<StreamingLink | null> {
+	await page.waitForFunction(() => document.body?.innerText.trim().length > 0, { timeout: 10000 }).catch(() => null);
+
+	const rawPayload = await page.evaluate(() => {
+		const preformattedPayload = document.querySelector('pre')?.textContent?.trim();
+		if (preformattedPayload) return preformattedPayload;
+
+		const bodyPayload = document.body?.innerText?.trim();
+		if (bodyPayload) return bodyPayload;
+
+		return document.documentElement?.textContent?.trim() ?? '';
+	});
+
+	const parsed = parseStreamingLinkPayload(rawPayload, ctx);
+	if (parsed) return parsed;
+
+	ctx.log.debug(`Primewire streaming payload was not valid JSON: ${rawPayload.slice(0, 500)}`);
+	return null;
+}
+
+function toPuppeteerHeaders(headers: ProviderFetchOptions['headers']): PuppeteerHeaders {
+	const normalizedHeaders: PuppeteerHeaders = {};
+	for (const [key, value] of Object.entries(headers ?? {})) {
+		if (typeof value === 'string') {
+			normalizedHeaders[key] = value;
+		}
+	}
+	return normalizedHeaders;
+}
+
+async function getKeyCookies(
+	pageRequestOpt: CheerioLoadRequest,
+	requester: ScrapeRequester,
+	ctx: ProviderContext,
+): Promise<string | null> {
 	const resourceURL = new URL('home', PROVIDER.config.baseUrl);
 	ctx.log.info(`Fetching cookies from: ${resourceURL.href}`);
 
@@ -245,7 +307,8 @@ function selectBestResult(resultsPage: CheerioLoadResult, results: any[], media:
 	return (
 		results
 			.map((element) => {
-				const year = extractYearFromText(resultsPage.$(element).find(locators.$result_year).text().trim())?.toString() || '';
+				const year =
+					extractYearFromText(resultsPage.$(element).find(locators.$result_year).text().trim())?.toString() || '';
 				const title = resultsPage.$(element).find(locators.$result_title).text().trim();
 				const entry = resultsPage.$(element).find(locators.$result_entry).attr('href') || '';
 				const score = calculateMatchScore({ title, year }, media);
@@ -367,40 +430,64 @@ async function getServers(
 	ctx.log.debug(`Received ${rawServers.length} raw servers from API.`);
 
 	// Filter out servers that do not have a valid key or name
-	const validServers = rawServers.filter((server) => ['filemoon', 'mixdrop'].includes(server.name.toLowerCase()) && server.key);
+	const validServers = rawServers.filter(
+		(server) => ['filemoon', 'mixdrop'].includes(server.name.toLowerCase()) && server.key,
+	);
 	ctx.log.info(`Filtered valid servers: ${validServers.length} out of ${rawServers.length}.`);
 
 	// Resolve each server's streaming link
 	const resolved: ResolvedServer[] = [];
-	for (const server of validServers) {
+	// FOR NOW we will only process the first 2 servers to avoid potential blocking issues, but this can be adjusted as needed
+	for (const server of validServers.slice(0, 2)) {
 		try {
 			const serverURL = new URL(`/links/go/${server.key}?embed=true`, PROVIDER.config.baseUrl);
 			// !!! NOTE : Doing retry because sometimes when you fetch 2 iframe its seems to block the other request
 			// thats why we do a retry with delay if the first attempt fail, and we also set maxAttempts to 2 to avoid infinite retry loop in case of persistent failure
-			const resolveOpts: ProviderFetchOptions = {
-				attachUserAgent: true,
-				retryTimeout: 150,
-				maxAttempts: 2,
-				method: 'GET',
-				headers: {
-					accept: '*/*',
-					'accept-language': 'en-US,en;q=0.9,es;q=0.8',
-					'cache-control': 'no-cache',
-					pragma: 'no-cache',
-					priority: 'u=1, i',
-					'sec-ch-ua': '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
-					'sec-ch-ua-mobile': '?0',
-					'sec-ch-ua-platform': '"Windows"',
-					'sec-fetch-dest': 'empty',
-					'sec-fetch-mode': 'cors',
-					'sec-fetch-site': 'same-origin',
-					cookie: cookies!,
-					Referer: targetURL.href,
-				},
-			};
+			// const resolveOpts: ProviderFetchOptions = {
+			// 	attachUserAgent: true,
+			// 	retryTimeout: 300,
+			// 	maxAttempts: 3,
+			// 	method: 'GET',
+			// 	headers: {
+			// 		accept: '*/*',
+			// 		'accept-language': 'en-US,en;q=0.9,es;q=0.8',
+			// 		'cache-control': 'no-cache',
+			// 		pragma: 'no-cache',
+			// 		priority: 'u=1, i',
+			// 		'sec-ch-ua': '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+			// 		'sec-ch-ua-mobile': '?0',
+			// 		'sec-ch-ua-platform': '"Windows"',
+			// 		'sec-fetch-dest': 'empty',
+			// 		'sec-fetch-mode': 'cors',
+			// 		'sec-fetch-site': 'same-origin',
+			// 		cookie: cookies!,
+			// 		Referer: targetURL.href,
+			// 	},
+			// };
 			ctx.log.debug(`Resolving server ${server.name} with URL: ${serverURL.href}`);
-			const streamingLink = await ctx.xhr.fetchResponse<StreamingLink>(serverURL, resolveOpts, requester);
+			//const streamingLink = await ctx.xhr.fetchResponse<StreamingLink>(serverURL, resolveOpts, requester);
+			// resolved.push({
+			// 	name: server.name.toLowerCase(),
+			// 	url: streamingLink.link,
+			// 	quality: server.quality,
+			// 	file_name: server.file_name,
+			// 	file_size: server.file_size,
+			// });
+			const streamingSession = await ctx.puppeteer.launch(serverURL, {
+				requester,
+				browsingOptions: {
+					ignoreError: true,
+					closeOnComplete: false,
+					loadCriteria: 'networkidle0',
+					// extraHeaders: toPuppeteerHeaders(resolveOpts.headers),
+				},
+			});
 
+			const streamingLink = await extractStreamingLinkFromPage(streamingSession.page, ctx);
+			if (!streamingLink?.link) {
+				ctx.log.warn(`Primewire returned no streaming link for server ${server.name} (key: ${server.key}).`);
+				continue;
+			}
 			resolved.push({
 				name: server.name.toLowerCase(),
 				url: streamingLink.link,

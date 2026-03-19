@@ -2068,7 +2068,7 @@ var manifest_default = {
       active: true,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"

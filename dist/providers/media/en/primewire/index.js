@@ -2343,7 +2343,7 @@ var manifest_default = {
       active: true,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -2485,7 +2485,7 @@ async function getStreams(requester, ctx) {
       "sec-fetch-user": "?1",
       "upgrade-insecure-requests": "1",
       TE: "trailers",
-      cookie: "visitor_info={%22domain%22:%22primewire.si%22%2C%22uuid%22:%22a7e9fd5e-9d31-4a8a-96a4-0f0944ba798a%22%2C%22mouse_moved%22:true%2C%22suspected_bot%22:null%2C%22adblock%22:false}",
+      cookie: `visitor_info={%22domain%22:%22primewire.si%22%2C%22uuid%22:%22c11d1745-cbca-4ded-bc6f-baf247d5775c%22%2C%22mouse_moved%22:true%2C%22suspected_bot%22:null%2C%22adblock%22:false};cf_clearance=ltoiF1P.tXyph8NiUKY97otV9WJRW_h1zStICwaak_8-1773891180-1.2.1.1-ZvT_pb681AZGSoWRMI6sP0IRQezt0ZRDOp40eYeHRfOxBekyRgna..e7y7y9PX.HqUlAySnJoNVm9n5mCj_fZPpC4wOAQMDN25_Dx50kPH.ezoC_7oWITfdXgRsyNZsXmm8MdvWhojRn660bDClg5hX6fsjmEghJpVhIKRvEquOF_bt.qSg5J_0Cm4BrhMBU4vSLBZA_cFnWVx0JyKya.vEiG4gUWzmJ33.jFXNRPXQ`,
       Referer: new URL(PROVIDER.config.baseUrl).origin + "/"
     }
   };
@@ -2576,6 +2576,36 @@ ${servers.map((s) => JSON.stringify(s)).join("\n")}`);
     }
   }
   return results;
+}
+function parseStreamingLinkPayload(rawPayload, ctx) {
+  const payload = rawPayload.trim();
+  if (!payload) return null;
+  try {
+    const parsed = JSON.parse(payload);
+    if (typeof parsed.link !== "string" || parsed.link.trim() === "") return null;
+    return {
+      link: parsed.link,
+      host_id: typeof parsed.host_id === "number" ? parsed.host_id : 0,
+      host: typeof parsed.host === "string" ? parsed.host : ""
+    };
+  } catch (error) {
+    ctx.log.debug(`Failed to parse Primewire streaming payload as JSON: ${error}`);
+    return null;
+  }
+}
+async function extractStreamingLinkFromPage(page, ctx) {
+  await page.waitForFunction(() => document.body?.innerText.trim().length > 0, { timeout: 1e4 }).catch(() => null);
+  const rawPayload = await page.evaluate(() => {
+    const preformattedPayload = document.querySelector("pre")?.textContent?.trim();
+    if (preformattedPayload) return preformattedPayload;
+    const bodyPayload = document.body?.innerText?.trim();
+    if (bodyPayload) return bodyPayload;
+    return document.documentElement?.textContent?.trim() ?? "";
+  });
+  const parsed = parseStreamingLinkPayload(rawPayload, ctx);
+  if (parsed) return parsed;
+  ctx.log.debug(`Primewire streaming payload was not valid JSON: ${rawPayload.slice(0, 500)}`);
+  return null;
 }
 async function getKeyCookies(pageRequestOpt, requester, ctx) {
   const resourceURL = new URL("home", PROVIDER.config.baseUrl);
@@ -2698,35 +2728,29 @@ async function getServers(targetURL, cookies, requester, ctx) {
   const serverResponse = await ctx.xhr.fetchResponse(serverRequestURL, apiOpts, requester);
   const rawServers = serverResponse.servers.filter((server) => server.key !== void 0);
   ctx.log.debug(`Received ${rawServers.length} raw servers from API.`);
-  const validServers = rawServers.filter((server) => ["filemoon", "mixdrop"].includes(server.name.toLowerCase()) && server.key);
+  const validServers = rawServers.filter(
+    (server) => ["filemoon", "mixdrop"].includes(server.name.toLowerCase()) && server.key
+  );
   ctx.log.info(`Filtered valid servers: ${validServers.length} out of ${rawServers.length}.`);
   const resolved = [];
-  for (const server of validServers) {
+  for (const server of validServers.slice(0, 2)) {
     try {
       const serverURL = new URL(`/links/go/${server.key}?embed=true`, PROVIDER.config.baseUrl);
-      const resolveOpts = {
-        attachUserAgent: true,
-        retryTimeout: 150,
-        maxAttempts: 2,
-        method: "GET",
-        headers: {
-          accept: "*/*",
-          "accept-language": "en-US,en;q=0.9,es;q=0.8",
-          "cache-control": "no-cache",
-          pragma: "no-cache",
-          priority: "u=1, i",
-          "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
-          "sec-ch-ua-mobile": "?0",
-          "sec-ch-ua-platform": '"Windows"',
-          "sec-fetch-dest": "empty",
-          "sec-fetch-mode": "cors",
-          "sec-fetch-site": "same-origin",
-          cookie: cookies,
-          Referer: targetURL.href
-        }
-      };
       ctx.log.debug(`Resolving server ${server.name} with URL: ${serverURL.href}`);
-      const streamingLink = await ctx.xhr.fetchResponse(serverURL, resolveOpts, requester);
+      const streamingSession = await ctx.puppeteer.launch(serverURL, {
+        requester,
+        browsingOptions: {
+          ignoreError: true,
+          closeOnComplete: false,
+          loadCriteria: "networkidle0"
+          // extraHeaders: toPuppeteerHeaders(resolveOpts.headers),
+        }
+      });
+      const streamingLink = await extractStreamingLinkFromPage(streamingSession.page, ctx);
+      if (!streamingLink?.link) {
+        ctx.log.warn(`Primewire returned no streaming link for server ${server.name} (key: ${server.key}).`);
+        continue;
+      }
       resolved.push({
         name: server.name.toLowerCase(),
         url: streamingLink.link,
