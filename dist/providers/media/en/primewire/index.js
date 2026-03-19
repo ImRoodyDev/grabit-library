@@ -2782,13 +2782,12 @@ async function getServers(targetURL, cookies, requester, ctx) {
           `API resolution failed for server ${server.name} (key: ${server.key}), falling back to browser session. Error: ${error}`
         );
       }
-      console.log("--- Browser Session Fallback ---");
+      ctx.log.info("--- Browser Session Fallback ---");
       let streamingSession = null;
       try {
         streamingSession = await ctx.puppeteer.launch(serverURL, {
           requester,
           browsingOptions: {
-            closeOnComplete: true,
             ignoreError: true,
             loadCriteria: "networkidle0"
           }
@@ -2808,7 +2807,7 @@ async function getServers(targetURL, cookies, requester, ctx) {
       } catch (error) {
         ctx.log.error(`Error during browser session for server ${server.name} (key: ${server.key}): ${error}`);
       } finally {
-        if (streamingSession) await streamingSession.page.close().catch(() => null);
+        await streamingSession?.browser.close().catch(() => null);
       }
     } catch (error) {
       ctx.log.error(`Error resolving server ${server.name} (key: ${server.key}): ${error}`);
