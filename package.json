@@ -14,7 +14,7 @@
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"grabit-engine": "file:../grabit-engine/grabit-engine-1.2.0-alpha.0.tgz",
+		"grabit-engine": "file:../grabit-engine/grabit-engine-1.2.0-alpha.2.tgz",
 		"puppeteer-real-browser": "^1.4.4"
 	}
 }

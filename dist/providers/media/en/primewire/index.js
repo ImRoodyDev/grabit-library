@@ -2343,7 +2343,7 @@ var manifest_default = {
       active: true,
       language: "en",
       type: "media",
-      env: "node",
+      env: "universal",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -2740,7 +2740,43 @@ async function getServers(targetURL, cookies, requester, ctx) {
   for (const server of validServers.slice(0, 2)) {
     try {
       const serverURL = new URL(`/links/go/${server.key}?embed=true`, PROVIDER.config.baseUrl);
-      ctx.log.debug(`Resolving server ${server.name} with URL: ${serverURL.href}`);
+      try {
+        const resolveOpts = {
+          attachUserAgent: true,
+          retryTimeout: 250,
+          maxAttempts: 2,
+          method: "GET",
+          headers: {
+            accept: "*/*",
+            "accept-language": "en-US,en;q=0.9,es;q=0.8",
+            "cache-control": "no-cache",
+            pragma: "no-cache",
+            priority: "u=1, i",
+            "sec-ch-ua": '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            cookie: cookies,
+            Referer: targetURL.href
+          }
+        };
+        ctx.log.debug(`Resolving server ${server.name} with URL: ${serverURL.href}`);
+        const streamingLink = await ctx.xhr.fetchResponse(serverURL, resolveOpts, requester);
+        resolved.push({
+          name: server.name.toLowerCase(),
+          url: streamingLink.link,
+          quality: server.quality,
+          file_name: server.file_name,
+          file_size: server.file_size
+        });
+        continue;
+      } catch (error) {
+        ctx.log.warn(
+          `API resolution failed for server ${server.name} (key: ${server.key}), falling back to browser session. Error: ${error}`
+        );
+      }
       let streamingSession = null;
       try {
         streamingSession = await ctx.puppeteer.launch(serverURL, {

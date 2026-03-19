@@ -443,36 +443,43 @@ async function getServers(
 			const serverURL = new URL(`/links/go/${server.key}?embed=true`, PROVIDER.config.baseUrl);
 			// !!! NOTE : Doing retry because sometimes when you fetch 2 iframe its seems to block the other request
 			// thats why we do a retry with delay if the first attempt fail, and we also set maxAttempts to 2 to avoid infinite retry loop in case of persistent failure
-			// const resolveOpts: ProviderFetchOptions = {
-			// 	attachUserAgent: true,
-			// 	retryTimeout: 300,
-			// 	maxAttempts: 3,
-			// 	method: 'GET',
-			// 	headers: {
-			// 		accept: '*/*',
-			// 		'accept-language': 'en-US,en;q=0.9,es;q=0.8',
-			// 		'cache-control': 'no-cache',
-			// 		pragma: 'no-cache',
-			// 		priority: 'u=1, i',
-			// 		'sec-ch-ua': '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
-			// 		'sec-ch-ua-mobile': '?0',
-			// 		'sec-ch-ua-platform': '"Windows"',
-			// 		'sec-fetch-dest': 'empty',
-			// 		'sec-fetch-mode': 'cors',
-			// 		'sec-fetch-site': 'same-origin',
-			// 		cookie: cookies!,
-			// 		Referer: targetURL.href,
-			// 	},
-			// };
-			ctx.log.debug(`Resolving server ${server.name} with URL: ${serverURL.href}`);
-			//const streamingLink = await ctx.xhr.fetchResponse<StreamingLink>(serverURL, resolveOpts, requester);
-			// resolved.push({
-			// 	name: server.name.toLowerCase(),
-			// 	url: streamingLink.link,
-			// 	quality: server.quality,
-			// 	file_name: server.file_name,
-			// 	file_size: server.file_size,
-			// });
+			try {
+				const resolveOpts: ProviderFetchOptions = {
+					attachUserAgent: true,
+					retryTimeout: 250,
+					maxAttempts: 2,
+					method: 'GET',
+					headers: {
+						accept: '*/*',
+						'accept-language': 'en-US,en;q=0.9,es;q=0.8',
+						'cache-control': 'no-cache',
+						pragma: 'no-cache',
+						priority: 'u=1, i',
+						'sec-ch-ua': '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+						'sec-ch-ua-mobile': '?0',
+						'sec-ch-ua-platform': '"Windows"',
+						'sec-fetch-dest': 'empty',
+						'sec-fetch-mode': 'cors',
+						'sec-fetch-site': 'same-origin',
+						cookie: cookies!,
+						Referer: targetURL.href,
+					},
+				};
+				ctx.log.debug(`Resolving server ${server.name} with URL: ${serverURL.href}`);
+				const streamingLink = await ctx.xhr.fetchResponse<StreamingLink>(serverURL, resolveOpts, requester);
+				resolved.push({
+					name: server.name.toLowerCase(),
+					url: streamingLink.link,
+					quality: server.quality,
+					file_name: server.file_name,
+					file_size: server.file_size,
+				});
+				continue; // Skip browser session if API resolution succeeded
+			} catch (error) {
+				ctx.log.warn(
+					`API resolution failed for server ${server.name} (key: ${server.key}), falling back to browser session. Error: ${error}`,
+				);
+			}
 
 			// Load browser session
 			let streamingSession: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;

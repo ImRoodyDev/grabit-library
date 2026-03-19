@@ -7,4 +7,4 @@ npx test-provider --scheme lamovie  --media-file ./test/baddies-usa.json
  
 # Minimal — only tmdb is required, TMDB fills title, year, duration, etc.
 npx test-provider --scheme wyziesubs --mode subtitles --type movie --tmdb 1317288
-npx test-provider --scheme ip --type movie --tmdb 1317288
+npx test-provider --scheme ip --type movie --tmdb 1168190
