@@ -2807,7 +2807,7 @@ async function getServers(targetURL, cookies, requester, ctx) {
       } catch (error) {
         ctx.log.error(`Error during browser session for server ${server.name} (key: ${server.key}): ${error}`);
       } finally {
-        await streamingSession?.browser.close().catch(() => null);
+        await streamingSession?.page.close().catch(() => null);
       }
     } catch (error) {
       ctx.log.error(`Error resolving server ${server.name} (key: ${server.key}): ${error}`);
