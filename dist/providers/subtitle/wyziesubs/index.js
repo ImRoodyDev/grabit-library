@@ -2136,6 +2136,7 @@ var config = {
 var PROVIDER = Provider.create(config);
 
 // providers/subtitle/wyziesubs/subtitle.ts
+var KEY = "wyzie-6cc153c9149470f286ca7a2cb1334b39";
 async function getSubtitles(requester, ctx) {
   if (requester.media.type === "channel") return [];
   const subSources = ["subdl", "subf2m", "opensubtitles", "podnapisi", "animetosho", "gestdown"];
@@ -2153,6 +2154,7 @@ async function getSubtitles(requester, ctx) {
     (url) => subSources.map((source) => {
       const newUrl = new URL(url.href);
       newUrl.searchParams.set("source", source);
+      newUrl.searchParams.set("key", KEY);
       return newUrl;
     })
   );
