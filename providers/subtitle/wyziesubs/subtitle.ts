@@ -7,12 +7,17 @@ import {
 } from 'grabit-engine';
 import { PROVIDER } from './config';
 
+const KEY = 'wyzie-6cc153c9149470f286ca7a2cb1334b39';
+
 /**
  * Subtitle handler for Wyziesubs.
  *
  * Fetches subtitle data from the provider's API.
  */
-export async function getSubtitles(requester: ScrapeRequester, ctx: ProviderContext): Promise<InternalSubtitleSource[]> {
+export async function getSubtitles(
+	requester: ScrapeRequester,
+	ctx: ProviderContext,
+): Promise<InternalSubtitleSource[]> {
 	if (requester.media.type === 'channel') return [];
 
 	// Sources available for subtitle in wyziesubs
@@ -38,6 +43,8 @@ export async function getSubtitles(requester: ScrapeRequester, ctx: ProviderCont
 		subSources.map((source) => {
 			const newUrl = new URL(url.href);
 			newUrl.searchParams.set('source', source);
+			// Add the API key as a query parameter
+			newUrl.searchParams.set('key', KEY);
 			return newUrl;
 		}),
 	);
