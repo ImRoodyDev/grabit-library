@@ -3,7 +3,8 @@
 	"version": "1.0.0",
 	"description": "Provider library that uses grabit-engine to scrape websites and extract multilingual streaming sources (movies, series, and live TV).",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"build": "npx bundle-provider"
 	},
 	"keywords": [],
 	"author": "",
@@ -20,7 +21,7 @@
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"grabit-engine": "file:../grabit-engine/grabit-engine-1.2.0-alpha.3.tgz",
+		"grabit-engine": "^1.2.0-alpha.6",
 		"puppeteer-real-browser": "^1.4.4"
 	}
 }

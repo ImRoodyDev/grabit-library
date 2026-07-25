@@ -12172,7 +12172,14 @@ function sortByTargetLanguage(sources, targetLanguageISO) {
 var sanitizeMessage = value => value.replace(/\\"/g, '"').replace(/"/g, "").replace(/\s+/g, " ").trim();
 
 // node_modules/grabit-engine/dist/esm/src/utils/env.js
-var isDevelopment = () => typeof process !== "undefined" && process.env?.ENV !== "production";
+var isDevelopment = () => {
+  const reactNativeDev = globalThis.__DEV__;
+  if (typeof reactNativeDev === "boolean") return reactNativeDev;
+  if (typeof process !== "undefined") {
+    return (process.env?.NODE_ENV ?? process.env?.ENV) !== "production";
+  }
+  return false;
+};
 
 // node_modules/grabit-engine/dist/esm/src/types/ProcessError.js
 var ProcessError = /*#__PURE__*/function (_Error) {
@@ -12947,8 +12954,9 @@ function parse(str = "", format = "ms") {
 
 // node_modules/grabit-engine/dist/esm/src/utils/similarity.js
 function cosineSimilarity(a, b) {
-  const vecA = buildVector(a);
-  const vecB = buildVector(b);
+  return cosineSimilarityVectors(buildVector(a), buildVector(b));
+}
+function cosineSimilarityVectors(vecA, vecB) {
   const allWords = /* @__PURE__ */new Set([...vecA.keys(), ...vecB.keys()]);
   let dotProduct = 0;
   let magnitudeA = 0;

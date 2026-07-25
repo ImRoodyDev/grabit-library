@@ -12347,7 +12347,14 @@ function sortByTargetLanguage(sources, targetLanguageISO) {
 var sanitizeMessage = value => value.replace(/\\"/g, '"').replace(/"/g, "").replace(/\s+/g, " ").trim();
 
 // node_modules/grabit-engine/dist/esm/src/utils/env.js
-var isDevelopment = () => typeof process !== "undefined" && process.env?.ENV !== "production";
+var isDevelopment = () => {
+  const reactNativeDev = globalThis.__DEV__;
+  if (typeof reactNativeDev === "boolean") return reactNativeDev;
+  if (typeof process !== "undefined") {
+    return (process.env?.NODE_ENV ?? process.env?.ENV) !== "production";
+  }
+  return false;
+};
 
 // node_modules/grabit-engine/dist/esm/src/types/ProcessError.js
 var ProcessError = /*#__PURE__*/function (_Error) {
@@ -13245,23 +13252,25 @@ function calculateMatchScore(criteria, media) {
   let score = 0;
   if (media.type == "channel") return cosineSimilarity(media.channelName, criteria.title || "") * 100;
   if (media.title && criteria.title) {
-    const distance = cosineSimilarity(media.title, criteria.title);
-    const distances = media.localizedTitles.map(t => cosineSimilarity(t, criteria.title) ?? 0);
+    const queryVector = buildVector(criteria.title);
+    const distance = cosineSimilarityVectors(buildVector(media.title), queryVector);
+    const distances = media.localizedTitles.map(t => cosineSimilarityVectors(buildVector(t), queryVector));
     score += Math.max(distance, ...distances) * 100;
   }
   if (media.releaseYear && criteria.year && media.releaseYear.toString() === criteria.year) {
     score += 50;
   }
   if (media.duration && criteria.duration) {
-    const parsed = parse(criteria.duration) ?? 0 / 6e4;
+    const parsed = (parse(criteria.duration) ?? 0) / 6e4;
     const diff = Math.abs(media.duration - parsed);
     score += 20 - Math.min(diff, 20);
   }
   return score;
 }
 function cosineSimilarity(a, b) {
-  const vecA = buildVector(a);
-  const vecB = buildVector(b);
+  return cosineSimilarityVectors(buildVector(a), buildVector(b));
+}
+function cosineSimilarityVectors(vecA, vecB) {
   const allWords = /* @__PURE__ */new Set([...vecA.keys(), ...vecB.keys()]);
   let dotProduct = 0;
   let magnitudeA = 0;
