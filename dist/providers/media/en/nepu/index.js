@@ -13011,6 +13011,17 @@ var manifest_default = {
       priority: 100,
       dir: "providers/media/en"
     },
+    xpass2: {
+      name: "Xpass2",
+      version: "1.0.0",
+      active: true,
+      language: "en",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/en"
+    },
     primesrc: {
       name: "Primesrc",
       version: "1.0.0",
@@ -13204,7 +13215,7 @@ var manifest_default = {
 // providers/media/en/nepu/config.ts
 var config = {
   scheme: "nepu",
-  name: "nepu",
+  name: "Nepu",
   language: "en",
   baseUrl: "https://nepu.to/",
   entries: {

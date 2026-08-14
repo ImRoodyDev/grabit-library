@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AUTO-GENERATED — Do not edit manually                      ║
-// ║  Provider: vega                                            ║
+// ║  Provider: xpass2                                          ║
 // ║  Bundled with esbuild — npx bundle-provider                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -12144,7 +12144,7 @@ var require_cjs = __commonJS({
   }
 });
 
-// providers/media/multi/vega/index.ts
+// providers/media/en/xpass2/index.ts
 var index_exports = {};
 __export(index_exports, {
   default: () => index_default
@@ -12152,14 +12152,26 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 
 // node_modules/grabit-engine/dist/esm/src/utils/extractor.js
-var YEAR_REGEX = /(19|20)\d{2}/;
 function extractExtension(url) {
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
   return match ? match[1] : null;
 }
-function extractYearFromText(text) {
-  const yearMatch = text.match(YEAR_REGEX);
-  return yearMatch ? parseInt(yearMatch[0], 10) : null;
+function extractSetCookies(headers) {
+  if (!headers) return [];
+  const maybeGet = headers.get;
+  if (typeof maybeGet === "function") {
+    const maybeGetAll = headers.getAll;
+    if (typeof maybeGetAll === "function") {
+      const all = maybeGetAll.call(headers, "set-cookie") || maybeGetAll.call(headers, "Set-Cookie");
+      if (Array.isArray(all) && all.length) return all;
+    }
+    const val = maybeGet.call(headers, "set-cookie") ?? maybeGet.call(headers, "Set-Cookie");
+    if (!val) return [];
+    return Array.isArray(val) ? val : [val];
+  }
+  const sc = headers["set-cookie"] ?? headers["Set-Cookie"] ?? headers["setCookie"];
+  if (!sc) return [];
+  return Array.isArray(sc) ? sc : [sc];
 }
 
 // node_modules/grabit-engine/dist/esm/src/controllers/provider.js
@@ -12375,6 +12387,10 @@ function normalizeHeaders(headers) {
   }
   return result;
 }
+function createCookiesFromSet(headers) {
+  const cookies = extractSetCookies(headers);
+  return cookies.map(cookie => cookie.split(";")[0]).join("; ");
+}
 function deduplicateArray(array) {
   return Array.from(new Set(array));
 }
@@ -12545,7 +12561,7 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x51) {
+      return function (_x18) {
         return _ref3.apply(this, arguments);
       };
     }()));
@@ -12570,7 +12586,7 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x52) {
+      return function (_x19) {
         return _ref4.apply(this, arguments);
       };
     }()));
@@ -12965,55 +12981,6 @@ function parse(str = "", format = "ms") {
   return result && result / (parse.unit[format] || 1) * (str[0] === "-" ? -1 : 1);
 }
 
-// node_modules/grabit-engine/dist/esm/src/utils/similarity.js
-function calculateMatchScore(criteria, media) {
-  let score = 0;
-  if (media.type == "channel") return cosineSimilarity(media.channelName, criteria.title || "") * 100;
-  if (media.title && criteria.title) {
-    const queryVector = buildVector(criteria.title);
-    const distance = cosineSimilarityVectors(buildVector(media.title), queryVector);
-    const distances = media.localizedTitles.map(t => cosineSimilarityVectors(buildVector(t), queryVector));
-    score += Math.max(distance, ...distances) * 100;
-  }
-  if (media.releaseYear && criteria.year && media.releaseYear.toString() === criteria.year) {
-    score += 50;
-  }
-  if (media.duration && criteria.duration) {
-    const parsed = (parse(criteria.duration) ?? 0) / 6e4;
-    const diff = Math.abs(media.duration - parsed);
-    score += 20 - Math.min(diff, 20);
-  }
-  return score;
-}
-function cosineSimilarity(a, b) {
-  return cosineSimilarityVectors(buildVector(a), buildVector(b));
-}
-function cosineSimilarityVectors(vecA, vecB) {
-  const allWords = /* @__PURE__ */new Set([...vecA.keys(), ...vecB.keys()]);
-  let dotProduct = 0;
-  let magnitudeA = 0;
-  let magnitudeB = 0;
-  for (const word of allWords) {
-    const valA = vecA.get(word) || 0;
-    const valB = vecB.get(word) || 0;
-    dotProduct += valA * valB;
-    magnitudeA += valA * valA;
-    magnitudeB += valB * valB;
-  }
-  magnitudeA = Math.sqrt(magnitudeA);
-  magnitudeB = Math.sqrt(magnitudeB);
-  if (magnitudeA === 0 || magnitudeB === 0) return 0;
-  return dotProduct / (magnitudeA * magnitudeB);
-}
-function buildVector(text) {
-  const words = text.toLowerCase().split(/\W+/).filter(Boolean);
-  const freq = /* @__PURE__ */new Map();
-  for (const word of words) {
-    freq.set(word, (freq.get(word) || 0) + 1);
-  }
-  return freq;
-}
-
 // provider-shim:grabit-engine-provider-crypto-shim
 var runtimeRequire = typeof require === "function" ? require : void 0;
 var globalCryptoCandidates = [globalThis.__grabitCrypto, globalThis.Crypto, globalThis.crypto];
@@ -13266,18 +13233,18 @@ var manifest_default = {
   }
 };
 
-// providers/media/multi/vega/config.ts
+// providers/media/en/xpass2/config.ts
 var config = {
-  scheme: "vega",
-  name: "VMovies",
-  language: ["hi", "en"],
-  baseUrl: "https://vegamovies.catering",
+  scheme: "xpass2",
+  name: "Xpass2",
+  language: "en",
+  baseUrl: "https://play.xpass.top",
   entries: {
     movie: {
-      endpoint: "/search.php?q={title:form-uri}&page=1"
+      endpoint: "/e/movie/{id:string}"
     },
     serie: {
-      endpoint: "/search.php?q={title:form-uri}&page=1"
+      endpoint: "/e/tv/{id:string}/{season:1}/{episode:1}"
     }
   },
   mediaIds: ["imdb", "tmdb"],
@@ -13285,607 +13252,236 @@ var config = {
 };
 var PROVIDER = Provider.create(config);
 
-// providers/extractors/hubcloud.ts
-function extractUrlFromScript(html) {
-  const doubleAtobMatch = html.match(/(?:var|let|const)\s+\w+\s*=\s*atob\(atob\(['"]([^'"]+)['"]\)\)/);
-  if (doubleAtobMatch?.[1]) {
-    try {
-      return atob(atob(doubleAtobMatch[1]));
-    } catch {}
-  }
-  const plainMatch = html.match(/var\s+url\s*=\s*['"]([^'"]+)['"]/);
-  const rSegment = plainMatch?.[1]?.split("r=")?.[1];
-  if (rSegment) {
-    try {
-      return atob(rSegment);
-    } catch {}
-  }
-  return plainMatch?.[1] || "";
-}
-function getRedirectedPixelDrainUrl(...htmlSources) {
-  for (const html of htmlSources) {
-    if (!html) continue;
-    const match = html.match(/var\s+pxl\s*=\s*['"]([^'"]+)['"];?/i);
-    if (match?.[1]) return match[1];
-  }
-  return "";
-}
-function fetchTextWithCloudflareFallback(_x1, _x10, _x11, _x12, _x13) {
-  return _fetchTextWithCloudflareFallback.apply(this, arguments);
-}
-function _fetchTextWithCloudflareFallback() {
-  _fetchTextWithCloudflareFallback = _asyncToGenerator(function* (target, headers, requester, ctx, cookieJar) {
-    const requestHeaders = {
-      ...headers
-    };
-    if (cookieJar.cookie) requestHeaders.cookie = cookieJar.cookie;
-    try {
-      const response = yield ctx.xhr.fetch(target, {
-        method: "GET",
-        attachUserAgent: true,
-        clean: true,
-        headers: requestHeaders
-      }, requester);
-      if (response.status !== 403 && response.ok) {
-        return yield response.text();
-      }
-      if (response.status !== 403) {
-        ctx.log.warn(`[hubcloud] ${target.href} -> HTTP ${response.status}`);
-        return yield response.text().catch(() => null);
-      }
-      ctx.log.warn(`[hubcloud] Cloudflare 403 for ${target.href}, falling back to browser session.`);
-    } catch (error) {
-      ctx.log.warn(`[hubcloud] xhr fetch failed for ${target.href} (${error.message}), trying browser session.`);
-    }
-    let session = null;
-    try {
-      session = yield ctx.puppeteer.launch(target, {
-        requester,
-        browsingOptions: {
-          ignoreError: true,
-          loadCriteria: "networkidle0"
-        }
-      });
-      const html = yield session.page.content();
-      try {
-        const cookies = yield session.page.cookies();
-        const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join("; ");
-        if (cookieStr) cookieJar.cookie = cookieStr;
-      } catch {}
-      return html;
-    } catch (error) {
-      ctx.log.error(`[hubcloud] Browser fallback failed for ${target.href}: ${error.message}`);
-      return null;
-    } finally {
-      yield session?.page.close().catch(() => null);
-    }
-  });
-  return _fetchTextWithCloudflareFallback.apply(this, arguments);
-}
-function extractHubcloudStreams(_x14, _x15, _x16, _x17) {
-  return _extractHubcloudStreams.apply(this, arguments);
-}
-function _extractHubcloudStreams() {
-  _extractHubcloudStreams = _asyncToGenerator(function* (link, requester, ctx, meta) {
-    const startURL = typeof link === "string" ? new URL(link) : link;
-    ctx.log.debug(`[hubcloud] Resolving: ${startURL.href}`);
-    const headers = {
-      Referer: startURL.origin + "/"
-    };
-    const cookieJar = {
-      cookie: "ext_name=ojplmecpdpgccookcobabopnaifgidhf; xla=s4t"
-    };
-    if (startURL.pathname.includes("search-recover.php")) {
-      return handleSearchRecover(startURL, headers, cookieJar, requester, ctx, meta);
-    }
-    return resolveDrivePage(startURL, headers, cookieJar, requester, ctx, meta);
-  });
-  return _extractHubcloudStreams.apply(this, arguments);
-}
-function handleSearchRecover(_x18, _x19, _x20, _x21, _x22, _x23) {
-  return _handleSearchRecover.apply(this, arguments);
-}
-function _handleSearchRecover() {
-  _handleSearchRecover = _asyncToGenerator(function* (recoverURL, headers, cookieJar, requester, ctx, meta) {
-    let resolvedURL = recoverURL;
-    try {
-      const probe = yield ctx.xhr.fetch(recoverURL, {
-        method: "GET",
-        attachUserAgent: true,
-        clean: true,
-        headers: {
-          ...headers
-        },
-        redirect: "follow"
-      }, requester);
-      if (probe.url && /search-recover\.php/i.test(probe.url)) resolvedURL = new URL(probe.url);
-    } catch {}
-    const apiURL = new URL(resolvedURL.href);
-    apiURL.searchParams.set("api", "search");
-    apiURL.searchParams.set("page", "1");
-    let hits = [];
-    try {
-      const json = yield ctx.xhr.fetchResponse(apiURL, {
-        method: "GET",
-        attachUserAgent: true,
-        clean: true,
-        headers: {
-          ...headers,
-          Accept: "application/json"
-        }
-      }, requester);
-      hits = Array.isArray(json?.hits) ? json.hits : [];
-    } catch (error) {
-      ctx.log.warn(`[hubcloud] search-recover API failed: ${error.message}`);
-      return [];
-    }
-    const tokens = (meta.matchTokens ?? []).map(t => t.toLowerCase()).filter(t => t.length >= 3);
-    const accepted = hits.filter(hit => {
-      if (!hit.url) return false;
-      if (tokens.length === 0) return true;
-      const name = (hit.file_name ?? "").toLowerCase();
-      return tokens.some(t => name.includes(t));
-    });
-    ctx.log.info(`[hubcloud] search-recover: ${hits.length} hit(s), ${accepted.length} passed the title guard (tokens: ${tokens.join(",") || "none"}).`);
-    if (accepted.length === 0 && hits.length > 0) {
-      ctx.log.warn("[hubcloud] All recovered hits looked unrelated to the requested title; skipping.");
-    }
-    const results = [];
-    for (const hit of accepted.slice(0, 3)) {
-      try {
-        const sources = yield resolveDrivePage(new URL(hit.url), headers, cookieJar, requester, ctx, {
-          ...meta,
-          fileName: hit.file_name ?? meta.fileName
-        });
-        results.push(...sources);
-      } catch (error) {
-        ctx.log.debug(`[hubcloud] Failed resolving recovered hit ${hit.url}: ${error.message}`);
-      }
-    }
-    return results;
-  });
-  return _handleSearchRecover.apply(this, arguments);
-}
-function resolveDrivePage(_x24, _x25, _x26, _x27, _x28, _x29) {
-  return _resolveDrivePage.apply(this, arguments);
-}
-function _resolveDrivePage() {
-  _resolveDrivePage = _asyncToGenerator(function* (startURL, headers, cookieJar, requester, ctx, meta) {
-    const baseUrl = startURL.origin;
-    const vLinkText = yield fetchTextWithCloudflareFallback(startURL, headers, requester, ctx, cookieJar);
-    if (!vLinkText) {
-      ctx.log.warn("[hubcloud] Could not load the initial HubCloud page.");
-      return [];
-    }
-    const $vLink = ctx.cheerio.$load(vLinkText);
-    let vcloudLink = extractUrlFromScript(vLinkText) || $vLink(".fa-file-download.fa-lg").parent().attr("href") || startURL.href;
-    if (vcloudLink.startsWith("/")) vcloudLink = `${baseUrl}${vcloudLink}`;
-    ctx.log.debug(`[hubcloud] vcloud link: ${vcloudLink}`);
-    const vcloudURL = new URL(vcloudLink);
-    const vcloudText = yield fetchTextWithCloudflareFallback(vcloudURL, headers, requester, ctx, cookieJar);
-    if (!vcloudText) {
-      ctx.log.warn("[hubcloud] Could not load the vcloud page.");
-      return [];
-    }
-    const $ = ctx.cheerio.$load(vcloudText);
-    const rawLinks = [];
-    const buttons = $(".btn-success.btn-lg.h6,.btn-danger,.btn-secondary").toArray();
-    for (const element of buttons) {
-      let href = $(element).attr("href") || "";
-      if (!href) continue;
-      if (href.includes("pixeld")) {
-        if (!href.includes("api")) {
-          const redirected = getRedirectedPixelDrainUrl(vLinkText, vcloudText);
-          if (redirected) href = redirected;
-          const token = href.split("/").pop()?.split("?")[0];
-          const pxlBase = href.split("/").slice(0, -2).join("/");
-          href = `${pxlBase}/api/file/${token}?download`;
-        }
-        rawLinks.push({
-          server: "Pixeldrain",
-          url: href
-        });
-      } else if (href.includes(".dev") && !href.includes("/?id=")) {
-        rawLinks.push({
-          server: "Cf-Worker",
-          url: href
-        });
-      } else if (href.includes("hubcloud") || href.includes("/?id=")) {
-        const resolved = yield resolveNestedHubcloud(href, headers, cookieJar, requester, ctx);
-        if (resolved) rawLinks.push({
-          server: "HubCloud",
-          url: resolved
-        });
-      } else if (href.includes("cloudflarestorage")) {
-        rawLinks.push({
-          server: "CfStorage",
-          url: href
-        });
-      } else if (href.includes("fastdl") || href.includes("fsl.")) {
-        rawLinks.push({
-          server: "FastDl",
-          url: href
-        });
-      } else if (href.includes("hubcdn") && !href.includes("/?id=")) {
-        rawLinks.push({
-          server: "HubCdn",
-          url: href
-        });
-      } else if (href.includes(".mkv") || href.includes("?token=")) {
-        const serverName = href.match(/^(?:https?:\/\/)?(?:www\.)?([^/]+)/i)?.[1]?.replace(/\./g, " ") || "Direct";
-        rawLinks.push({
-          server: serverName,
-          url: href
-        });
-      }
-    }
-    ctx.log.info(`[hubcloud] Resolved ${rawLinks.length} mirror link(s).`);
-    const label = [meta.fileName, meta.quality].filter(Boolean).join(" ").trim() || "HubCloud";
-    return rawLinks.map(raw => {
-      const format = guessFormat(raw.url);
-      return {
-        fileName: `[${raw.server}] ${label}`.trim(),
-        playlist: raw.url,
-        language: meta.language,
-        ...(format ? {
-          format
-        } : {}),
-        xhr: {
-          haveCorsPolicy: true,
-          headers: {}
-        }
-      };
-    });
-  });
-  return _resolveDrivePage.apply(this, arguments);
-}
-function resolveNestedHubcloud(_x30, _x31, _x32, _x33, _x34) {
-  return _resolveNestedHubcloud.apply(this, arguments);
-}
-function _resolveNestedHubcloud() {
-  _resolveNestedHubcloud = _asyncToGenerator(function* (href, headers, cookieJar, requester, ctx) {
-    try {
-      const headHeaders = {
-        ...headers,
-        ...(cookieJar.cookie ? {
-          cookie: cookieJar.cookie
-        } : {})
-      };
-      const first = yield ctx.xhr.fetch(new URL(href), {
-        method: "HEAD",
-        attachUserAgent: true,
-        clean: true,
-        headers: headHeaders,
-        redirect: "manual"
-      }, requester);
-      let newLink = first.headers.get("location") || (first.url && first.url !== href ? first.url : href);
-      if (newLink.includes("googleusercontent")) {
-        return newLink.split("?link=")[1] || newLink;
-      }
-      const second = yield ctx.xhr.fetch(new URL(newLink), {
-        method: "HEAD",
-        attachUserAgent: true,
-        clean: true,
-        headers: headHeaders,
-        redirect: "manual"
-      }, requester);
-      const secondLoc = second.headers.get("location");
-      if (secondLoc) return secondLoc.split("?link=")[1] || secondLoc;
-      if (second.url && second.url !== newLink) return second.url.split("?link=")[1] || second.url;
-      return newLink;
-    } catch (error) {
-      ctx.log.debug(`[hubcloud] Nested resolution failed for ${href}: ${error.message}`);
-      return href;
-    }
-  });
-  return _resolveNestedHubcloud.apply(this, arguments);
-}
-function guessFormat(url) {
-  const lower = url.toLowerCase();
-  if (lower.includes(".m3u8")) return "m3u8";
-  if (lower.includes(".mkv")) return "mkv";
-  if (lower.includes(".mp4")) return "mp4";
-  if (lower.includes(".webm")) return "webm";
-  return void 0;
-}
-
-// providers/extractors/hubchain.ts
-function detectQuality(text) {
-  const t = text.toLowerCase();
-  if (t.includes("2160p") || t.includes("4k")) return "4k";
-  if (t.includes("1080p")) return "1080p";
-  if (t.includes("720p")) return "720p";
-  if (t.includes("480p")) return "480p";
-  return "Unknown";
-}
-
-// providers/extractors/postMatch.ts
-function cleanTitle(raw) {
-  return raw.replace(/\(.*?\)/g, " ").replace(/\[.*?\]/g, " ").replace(/\b(480p|720p|1080p|2160p|4k|hd|web[- ]?dl|webrip|bluray|hevc|x264|x265|hindi|english|dual audio|dubbed|season\s*\d+|s\d+|complete|full movie)\b/gi, " ").replace(/[-_.]+/g, " ").replace(/\s+/g, " ").trim();
-}
-function getSeasonFromText(text) {
-  const m2 = text.match(/\bseason\s*(\d{1,2})\b/i) || text.match(/\bs(\d{1,2})(?:\b|e)/i);
-  return m2 ? Number(m2[1]) : null;
-}
-function pickBestPost(posts, media, minScore = 45) {
-  const wantSeason = media.type === "serie" ? Number(media.season) : null;
-  const scored = posts.map(post => {
-    const year = extractYearFromText(post.title)?.toString() || "";
-    let score = calculateMatchScore({
-      title: cleanTitle(post.title),
-      year
-    }, media);
-    if (wantSeason != null) {
-      const postSeason = getSeasonFromText(post.title);
-      if (postSeason != null) score += postSeason === wantSeason ? 25 : -60;
-    }
-    return {
-      post,
-      score
-    };
-  }).sort((a, b) => b.score - a.score);
-  const top = scored[0];
-  if (!top || top.score < minScore) return null;
-  return top;
-}
-
-// providers/media/multi/vega/stream.ts
-var VEGA_HEADERS = {
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-  "Accept-Language": "en-US,en;q=0.9",
-  cookie: "xla=s4t"
-};
-var MAX_CANDIDATES = 3;
-function getStreams(_x35, _x36) {
+// providers/media/en/xpass2/stream.ts
+var MAX_SOURCES = 8;
+function getStreams(_x1, _x10) {
   return _getStreams.apply(this, arguments);
 }
 function _getStreams() {
   _getStreams = _asyncToGenerator(function* (requester, ctx) {
     if (requester.media.type === "channel") return [];
-    const media = requester.media;
-    const pageOpt = {
-      ...requester,
-      followRedirects: true,
-      extraHeaders: {
-        ...VEGA_HEADERS
+    const base = new URL(PROVIDER.config.baseUrl);
+    const embedUrl = PROVIDER.createResourceURL(requester);
+    const referer = base.origin + "/";
+    const viaHttp = yield resolveViaXhr(embedUrl, base, requester, ctx);
+    if (viaHttp.streams && !viaHttp.cfBlocked) {
+      if (viaHttp.streams.length) {
+        ctx.log.info(`[xpass2] Resolved ${viaHttp.streams.length} HLS stream(s) via ctx.xhr (no browser).`);
+        return toSources(viaHttp.streams, referer, base);
       }
-    };
-    let posts = [];
-    for (const url of PROVIDER.createResourceUrls(requester)) {
-      posts = yield searchPosts(url, requester, ctx);
-      if (posts.length > 0) break;
-    }
-    if (posts.length === 0) {
-      ctx.log.warn("[vega] No search results.");
+      ctx.log.warn("[xpass2] ctx.xhr reached the source list but found no playable stream.");
       return [];
     }
-    const best = pickBestPost(posts, media);
-    if (!best) {
-      ctx.log.warn("[vega] No post cleared the match threshold.");
+    ctx.log.info("[xpass2] Cloudflare gate on the HTTP path \u2014 falling back to ctx.puppeteer.");
+    const viaBrowser = yield resolveViaPuppeteer(embedUrl, requester, ctx);
+    if (!viaBrowser.length) {
+      ctx.log.warn("[xpass2] No playable stream after the puppeteer fallback.");
       return [];
     }
-    ctx.log.info(`[vega] Best match: "${best.post.title}" (score ${best.score}) -> ${best.post.link}`);
-    const candidates = yield getCandidateLinks(best.post.link, requester, ctx, pageOpt);
-    if (candidates.length === 0) {
-      ctx.log.warn("[vega] No download candidates on the post page.");
-      return [];
-    }
-    ctx.log.info(`[vega] ${candidates.length} candidate link(s) before resolution.`);
-    const results = [];
-    for (const cand of candidates.slice(0, MAX_CANDIDATES)) {
-      try {
-        const cloudLink = yield resolveVegaLink(cand.link, requester, ctx);
-        if (!cloudLink) {
-          ctx.log.debug(`[vega] Could not resolve candidate to a cloud link: ${cand.link}`);
-          continue;
-        }
-        const sources = yield extractHubcloudStreams(cloudLink, requester, ctx, {
-          fileName: `${best.post.title} ${cand.label}`.trim(),
-          quality: cand.quality,
-          language: "hi"
-        });
-        results.push(...sources);
-      } catch (error) {
-        ctx.log.error(`[vega] Candidate resolution failed (${cand.link}): ${error.message}`);
-      }
-    }
-    ctx.log.info(`[vega] Returning ${results.length} source(s).`);
-    return results;
+    ctx.log.info(`[xpass2] Resolved ${viaBrowser.length} HLS stream(s) via puppeteer fallback.`);
+    return toSources(viaBrowser, referer, base);
   });
   return _getStreams.apply(this, arguments);
 }
-function searchPosts(_x37, _x38, _x39) {
-  return _searchPosts.apply(this, arguments);
+function resolveViaXhr(_x11, _x12, _x13, _x14) {
+  return _resolveViaXhr.apply(this, arguments);
 }
-function _searchPosts() {
-  _searchPosts = _asyncToGenerator(function* (url, requester, ctx) {
-    const baseUrl = PROVIDER.config.baseUrl;
-    try {
-      const json = yield ctx.xhr.fetchResponse(url, {
-        method: "GET",
-        attachUserAgent: true,
-        clean: true,
-        headers: {
-          ...VEGA_HEADERS,
-          Referer: baseUrl + "/"
-        }
-      }, requester);
-      const hits = Array.isArray(json?.hits) ? json.hits : [];
-      const posts = [];
-      for (const hit of hits) {
-        const doc = hit?.document || {};
-        const title = String(doc.post_title || "").replace(/Download/gi, "").trim();
-        const permalink = String(doc.permalink || "");
-        if (!title || !permalink) continue;
-        const postUrl = new URL(permalink, `${baseUrl}/`);
-        posts.push({
-          title,
-          link: `${postUrl.pathname}${postUrl.search}${postUrl.hash}`,
-          image: String(doc.post_thumbnail || "")
-        });
-      }
-      ctx.log.debug(`[vega] Search ${url.href} -> ${posts.length} hit(s).`);
-      return posts;
-    } catch (error) {
-      ctx.log.warn(`[vega] Search failed for ${url.href}: ${error.message}`);
-      return [];
-    }
-  });
-  return _searchPosts.apply(this, arguments);
-}
-function getCandidateLinks(_x40, _x41, _x42, _x43) {
-  return _getCandidateLinks.apply(this, arguments);
-}
-function _getCandidateLinks() {
-  _getCandidateLinks = _asyncToGenerator(function* (link, requester, ctx, pageOpt) {
-    const url = new URL(link, `${PROVIDER.config.baseUrl}/`);
-    const {
-      $
-    } = yield ctx.cheerio.load(url, pageOpt, ctx.xhr);
-    const media = requester.media;
-    const candidates = [];
-    if (media.type === "serie") {
-      const wantSeason = Number(media.season);
-      const wantEpisode = Number(media.episode);
-      const episodePages = [];
-      $("h3").each((_, h2) => {
-        const heading = $(h2).text();
-        if (getSeasonFromText(heading) !== wantSeason) return;
-        const quality = detectQuality(heading);
-        let node = $(h2).next();
-        let guard = 0;
-        while (node.length && !node.is("h3") && guard++ < 8) {
-          const link2 = node.find("a").filter((__, a) => /episode/i.test($(a).text())).first().attr("href");
-          if (link2) {
-            episodePages.push({
-              quality,
-              href: link2
-            });
-            break;
-          }
-          node = node.next();
-        }
-      });
-      for (const page of dedupeBy(episodePages, p => p.href).slice(0, 3)) {
-        const eps = yield getEpisodeList(page.href, requester, ctx, pageOpt);
-        const ep = eps.find(e => episodeNumberOf(e.title) === wantEpisode);
-        if (ep) candidates.push({
-          quality: page.quality,
-          link: ep.link,
-          label: `E${wantEpisode}`
-        });
-      }
-    } else {
-      for (const a of $("a:has(.dwd-button)").toArray()) {
-        const href = $(a).attr("href");
-        if (!href) continue;
-        const label = `${$(a).closest("p").prevAll("h3,h4,h5,p").first().text()} ${$(a).text()}`;
-        candidates.push({
-          quality: detectQuality(label),
-          link: href,
-          label: detectQuality(label)
-        });
-      }
-    }
-    const order = {
-      "4k": 4,
-      "2160p": 4,
-      "1080p": 3,
-      "720p": 2,
-      "480p": 1,
-      unknown: 0
+function _resolveViaXhr() {
+  _resolveViaXhr = _asyncToGenerator(function* (embedUrl, base, requester, ctx) {
+    const pageHeaders = {
+      Referer: base.origin + "/",
+      "accept-language": "en-US,en;q=0.9"
     };
-    return dedupeBy(candidates, c => c.link).sort((a, b) => (order[b.quality.toLowerCase()] || 0) - (order[a.quality.toLowerCase()] || 0));
-  });
-  return _getCandidateLinks.apply(this, arguments);
-}
-function getEpisodeList(_x44, _x45, _x46, _x47) {
-  return _getEpisodeList.apply(this, arguments);
-}
-function _getEpisodeList() {
-  _getEpisodeList = _asyncToGenerator(function* (episodesLink, requester, ctx, pageOpt) {
     try {
-      let target = episodesLink;
-      if (target.includes("url=")) {
-        const decoded = safeAtob(target.split("url=")[1]);
-        if (decoded) target = decoded;
-      }
-      const {
-        $
-      } = yield ctx.cheerio.load(new URL(target, `${PROVIDER.config.baseUrl}/`), pageOpt, ctx.xhr);
-      const container = $(".entry-content,.entry-inner").length ? $(".entry-content,.entry-inner") : $("body");
-      const episodes = [];
-      container.find("h3,h4").each((_, el) => {
-        const title = $(el).text().replace(/\s+/g, " ").trim();
-        if (!/episode/i.test(title)) return;
-        const hrefs = $(el).nextUntil("h3,h4").find("a").map((__, a) => $(a).attr("href")).get().filter(h2 => h2 && h2 !== "#");
-        const href = hrefs.find(h2 => /vcloud|hubcloud|v-cloud|\/drive\/|hubdrive|cloud\./i.test(h2)) || hrefs.find(h2 => /nexdrive/i.test(h2)) || hrefs[0];
-        if (title && href) episodes.push({
-          title,
-          link: href
-        });
-      });
-      return episodes;
-    } catch (error) {
-      ctx.log.debug(`[vega] Episode list failed for ${episodesLink}: ${error.message}`);
-      return [];
-    }
-  });
-  return _getEpisodeList.apply(this, arguments);
-}
-function resolveVegaLink(_x48, _x49, _x50) {
-  return _resolveVegaLink.apply(this, arguments);
-}
-function _resolveVegaLink() {
-  _resolveVegaLink = _asyncToGenerator(function* (link, requester, ctx) {
-    if (!link) return null;
-    if (/(?:hubcloud|vcloud|v-cloud|\/drive\/|hubdrive|cloud\.)/i.test(link)) return link;
-    try {
-      const res = yield ctx.xhr.fetch(new URL(link), {
+      const pageRes = yield ctx.xhr.fetch(embedUrl, {
         method: "GET",
         attachUserAgent: true,
         clean: true,
-        headers: {
-          ...VEGA_HEADERS
-        }
+        headers: pageHeaders
       }, requester);
-      const text = yield res.text();
-      const m2 = text.match(/<a\s+href="([^"]*cloud\.[^"]*)"/i) || text.match(/href="(https?:\/\/[^"]*(?:vcloud|hubcloud|hubdrive)[^"]*)"/i);
-      return m2?.[1] || null;
+      const html = yield pageRes.text();
+      if (pageRes.status === 403 || isCloudflare(html)) return {
+        cfBlocked: true
+      };
+      const dataUrl = html.match(/var\s+dataUrl\s*=\s*["']([^"']+)["']/)?.[1];
+      if (!dataUrl) {
+        ctx.log.debug("[xpass2] No dataUrl in embed HTML.");
+        return {
+          streams: [],
+          cfBlocked: false
+        };
+      }
+      const cookie = createCookiesFromSet(pageRes.headers) || "";
+      const apiHeaders = {
+        Referer: embedUrl.href,
+        "accept-language": "en-US,en;q=0.9",
+        "x-requested-with": "XMLHttpRequest",
+        ...(cookie ? {
+          cookie
+        } : {})
+      };
+      const listRes = yield ctx.xhr.fetch(new URL(dataUrl, base), {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        headers: apiHeaders
+      }, requester);
+      const listText = yield listRes.text();
+      if (isCloudflare(listText)) return {
+        cfBlocked: true
+      };
+      let sources;
+      try {
+        sources = JSON.parse(listText);
+      } catch {
+        ctx.log.debug(`[xpass2] Source list not JSON (status ${listRes.status}): ${listText.slice(0, 80)}`);
+        return {
+          streams: [],
+          cfBlocked: false
+        };
+      }
+      if (!Array.isArray(sources)) return {
+        streams: [],
+        cfBlocked: false
+      };
+      const streams = [];
+      const seen = /* @__PURE__ */new Set();
+      for (const s of sources.slice(0, MAX_SOURCES)) {
+        if (!s?.url) continue;
+        try {
+          const pjRes = yield ctx.xhr.fetch(new URL(s.url, base), {
+            method: "GET",
+            attachUserAgent: true,
+            clean: true,
+            headers: apiHeaders
+          }, requester);
+          const pjText = yield pjRes.text();
+          if (isCloudflare(pjText)) return {
+            cfBlocked: true
+          };
+          const files = [];
+          findFiles(JSON.parse(pjText), files);
+          for (const f of files) {
+            if (seen.has(f.file)) continue;
+            seen.add(f.file);
+            streams.push({
+              name: f.label || s.name || "Xpass",
+              file: f.file
+            });
+          }
+        } catch {}
+      }
+      return {
+        streams,
+        cfBlocked: false
+      };
     } catch (error) {
-      ctx.log.debug(`[vega] Dotlink resolution failed for ${link}: ${error.message}`);
-      return null;
+      ctx.log.debug(`[xpass2] HTTP path errored (${error.message}); treating as gated.`);
+      return {
+        cfBlocked: true
+      };
     }
   });
-  return _resolveVegaLink.apply(this, arguments);
+  return _resolveViaXhr.apply(this, arguments);
 }
-function episodeNumberOf(title) {
-  const m2 = title.match(/episodes?\s*:?\s*(\d+)/i) ||
-  // "Episode 1", "-:Episodes: 1:-"
-  title.match(/\be\s*p?\s*(\d+)\b/i) ||
-  // "E1", "Ep 1"
-  title.match(/\be(\d+)\b/i);
-  return m2 ? Number(m2[1]) : null;
+function resolveViaPuppeteer(_x15, _x16, _x17) {
+  return _resolveViaPuppeteer.apply(this, arguments);
 }
-function dedupeBy(arr, key) {
-  const seen = /* @__PURE__ */new Set();
-  return arr.filter(item => {
-    const k = key(item);
-    if (!k || seen.has(k)) return false;
-    seen.add(k);
-    return true;
+function _resolveViaPuppeteer() {
+  _resolveViaPuppeteer = _asyncToGenerator(function* (embedUrl, requester, ctx) {
+    let session = null;
+    try {
+      session = yield ctx.puppeteer.launch(embedUrl, {
+        requester,
+        browsingOptions: {
+          ignoreError: true,
+          loadCriteria: "networkidle2"
+        }
+      });
+      const result = yield session.page.evaluate(/*#__PURE__*/function () {
+        var _ref5 = _asyncToGenerator(function* (maxSources) {
+          const html = document.documentElement.outerHTML;
+          const dataUrl = (html.match(/var\s+dataUrl\s*=\s*["']([^"']+)["']/) || [])[1];
+          if (!dataUrl) return {
+            streams: []
+          };
+          const list = yield (yield fetch(dataUrl)).json();
+          const sources = Array.isArray(list) ? list : [];
+          const findFiles2 = (v, out) => {
+            if (Array.isArray(v)) return v.forEach(x => findFiles2(x, out));
+            if (v && typeof v === "object") {
+              if (typeof v.file === "string" && /^https?:\/\//.test(v.file)) out.push({
+                file: v.file,
+                label: v.label
+              });
+              for (const k of Object.keys(v)) if (k !== "file") findFiles2(v[k], out);
+            }
+          };
+          const streams = [];
+          const seen = /* @__PURE__ */new Set();
+          for (const s of sources.slice(0, maxSources)) {
+            if (!s?.url) continue;
+            try {
+              const files = [];
+              findFiles2(yield (yield fetch(s.url)).json(), files);
+              for (const f of files) {
+                if (seen.has(f.file)) continue;
+                seen.add(f.file);
+                streams.push({
+                  name: f.label || s.name || "Xpass",
+                  file: f.file
+                });
+              }
+            } catch {}
+          }
+          return {
+            streams
+          };
+        });
+        return function (_x20) {
+          return _ref5.apply(this, arguments);
+        };
+      }(), MAX_SOURCES);
+      return result.streams || [];
+    } catch (error) {
+      ctx.log.error(`[xpass2] Puppeteer fallback failed: ${error.message}`);
+      return [];
+    } finally {
+      yield session?.page.close().catch(() => null);
+    }
   });
+  return _resolveViaPuppeteer.apply(this, arguments);
 }
-function safeAtob(str) {
-  if (!str) return null;
-  try {
-    return atob(str);
-  } catch {
-    return null;
+function isCloudflare(html) {
+  return /<title>\s*just a moment|__cf_chl_(?:f_)?tk|cf-browser-verification|cf_chl_opt/i.test(html);
+}
+function findFiles(v, out) {
+  if (Array.isArray(v)) return v.forEach(x => findFiles(x, out));
+  if (v && typeof v === "object") {
+    if (typeof v.file === "string" && /^https?:\/\//.test(v.file)) out.push({
+      file: v.file,
+      label: v.label
+    });
+    for (const k of Object.keys(v)) if (k !== "file") findFiles(v[k], out);
   }
 }
+function toSources(streams, referer, base) {
+  return streams.map(s => ({
+    fileName: `${s.name}`,
+    playlist: s.file,
+    language: "en",
+    format: "m3u8",
+    xhr: {
+      haveCorsPolicy: true,
+      headers: {
+        Referer: referer,
+        Origin: base.origin
+      }
+    }
+  }));
+}
 
-// providers/media/multi/vega/index.ts
-var index_default = defineProviderModule(PROVIDER, manifest_default.providers["vega"], {
+// providers/media/en/xpass2/index.ts
+var index_default = defineProviderModule(PROVIDER, manifest_default.providers["xpass2"], {
   getStreams
 });

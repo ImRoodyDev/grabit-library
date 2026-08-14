@@ -64,6 +64,18 @@ Everything a provider needs is imported from `grabit-engine` — never from othe
 
 Return `[]` for unsupported media types (e.g. `if (requester.media.type === 'channel') return []`) rather than throwing. Typical `getStreams` flow: build candidate search URLs (id-based first, then localized title variants) → load results → `selectBestResult` by score threshold → drill to the episode/server page → dispatch each host to its extractor.
 
+### Authoring or fixing a provider
+
+**Follow [`.claude/skills/write-grabit-provider/SKILL.md`](.claude/skills/write-grabit-provider/SKILL.md)** — the
+step-by-step playbook for writing/porting a provider. Its core rules: build URLs from the
+`entries` pattern (never hand-rolled); resolve **HTTP-first** — fetch with `ctx.xhr` + `ctx.cheerio`
+and **scan the HTML body** for the source (data in a `<script>` element, or a player element's
+`src`), using the engine unpackers for packed scripts and following script ids/keys to their
+resolve endpoint; fall back to `ctx.puppeteer` **+ a network listener** **only** when the source
+isn't in the body or a real Cloudflare interstitial blocks you (rule out app-level
+Referer/cookie/signed-URL 403 first). Keep comments short (max 2 lines). Validate with
+`test-provider` and write an `analysis/*.md` note. Provider case studies live in [analysis/](analysis/).
+
 ### Bundling constraints
 
 `bundle-provider` uses esbuild to inline all local imports into one file, then runs a **narrow set of Babel plugins** to lower class syntax and async arrows so React Native's Hermes engine can evaluate the bundle at runtime (Hermes rejects raw `class` and async arrows; esbuild can't lower classes itself). This is why `@babel/*` and `esbuild` are devDependencies. Keep provider code within what the bundler supports and avoid pulling in new npm runtime deps.
