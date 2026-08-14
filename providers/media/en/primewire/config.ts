@@ -8,7 +8,7 @@ export const config: ProviderConfig = {
 	scheme: 'primewire',
 	name: 'Primewire',
 	language: 'en',
-	baseUrl: 'https://primewire.mov/',
+	baseUrl: 'https://primewire.pw/',
 	entries: {
 		movie: {
 			endpoint: '/filter?s={imdb:string}',

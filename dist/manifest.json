@@ -13,6 +13,50 @@
 			"priority": 100,
 			"dir": "providers/debug"
 		},
+		"xpass": {
+			"name": "Xpass",
+			"version": "1.0.0",
+			"active": true,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/en"
+		},
+		"primesrc": {
+			"name": "Primesrc",
+			"version": "1.0.0",
+			"active": false,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/en"
+		},
+		"nepu": {
+			"name": "Nepu",
+			"version": "1.0.0",
+			"active": false,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/en"
+		},
+		"goojara": {
+			"name": "Goojara",
+			"version": "1.0.0",
+			"active": false,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/en"
+		},
 		"ekola405gmt": {
 			"name": "Ekola405gmt",
 			"version": "1.0.0",
@@ -27,7 +71,7 @@
 		"autoembed": {
 			"name": "AutoEmbed",
 			"version": "1.0.0",
-			"active": true,
+			"active": false,
 			"language": ["en", "fr", "es"],
 			"type": "media",
 			"env": "universal",
@@ -35,10 +79,87 @@
 			"priority": 100,
 			"dir": "providers/media/multi"
 		},
+		"hdhub4u": {
+			"name": "HdHub4u",
+			"version": "1.0.0",
+			"active": true,
+			"language": ["hi", "en"],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"4khdhub": {
+			"name": "4KHDHub",
+			"version": "1.0.0",
+			"active": true,
+			"language": ["hi", "en"],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"vega": {
+			"name": "VMovies",
+			"version": "1.0.0",
+			"active": true,
+			"language": ["hi", "en"],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"drive": {
+			"name": "MoviesDrive",
+			"version": "1.0.0",
+			"active": false,
+			"language": ["hi", "en"],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"1cinevood": {
+			"name": "Cinewood",
+			"version": "1.0.0",
+			"active": true,
+			"language": ["hi", "en"],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"cuevana": {
+			"name": "Cuevana",
+			"version": "1.0.0",
+			"active": false,
+			"language": ["es"],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie", "serie"],
+			"priority": 100,
+			"dir": "providers/media/es"
+		},
+		"verhdlink": {
+			"name": "VerHdLink",
+			"version": "1.0.0",
+			"active": true,
+			"language": ["es"],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": ["movie"],
+			"priority": 100,
+			"dir": "providers/media/es"
+		},
 		"9filmyzilla": {
 			"name": "9filmyzilla",
 			"version": "1.0.0",
-			"active": true,
+			"active": false,
 			"language": ["en", "es"],
 			"type": "media",
 			"env": "universal",

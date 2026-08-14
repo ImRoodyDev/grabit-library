@@ -12348,8 +12348,6 @@ var sanitizeMessage = value => value.replace(/\\"/g, '"').replace(/"/g, "").repl
 
 // node_modules/grabit-engine/dist/esm/src/utils/env.js
 var isDevelopment = () => {
-  const reactNativeDev = globalThis.__DEV__;
-  if (typeof reactNativeDev === "boolean") return reactNativeDev;
   if (typeof process !== "undefined") {
     return (process.env?.NODE_ENV ?? process.env?.ENV) !== "production";
   }
@@ -12476,12 +12474,22 @@ var DebugLogger = /*#__PURE__*/function () {
       console.warn(this.format("warn", message), ...optionalParams);
     }
     /**
-     * Always log an error message.
+     * Log an error message when debugging is enabled.
+     *
+     * Every `error()` call site in this package reports a condition that is already
+     * handled — a provider that could not be reached is skipped, its metrics recorded,
+     * and the scrape continues. Printing those unconditionally meant `debug: false`
+     * still filled a consumer's console with routine scraping noise. Failures remain
+     * observable through `getMetricsReport()`, thrown `ProcessError`s, and the `error`
+     * returned by the hooks. Use {@link alwaysWarn} for problems that must never be
+     * silenced, such as a misconfigured provider.
      */
   }, {
     key: "error",
     value: function error(message, ...optionalParams) {
-      console.error(this.format("error", message), ...optionalParams);
+      if (!this.isProduction) {
+        console.error(this.format("error", message), ...optionalParams);
+      }
     }
     /**
      * Log a debug message when debugging is enabled.
@@ -12515,7 +12523,7 @@ var DebugLogger = /*#__PURE__*/function () {
     }
   }]);
 }();
-var _Logger = new DebugLogger(false, "GRABIT-ENGINE");
+var _Logger = new DebugLogger((process.env?.NODE_ENV ?? process.env?.ENV) !== "production", "GRABIT-ENGINE");
 
 // node_modules/grabit-engine/dist/esm/src/utils/standard.js
 function normalizeHeaders(headers) {
@@ -13336,6 +13344,50 @@ var manifest_default = {
       priority: 100,
       dir: "providers/debug"
     },
+    xpass: {
+      name: "Xpass",
+      version: "1.0.0",
+      active: true,
+      language: "en",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/en"
+    },
+    primesrc: {
+      name: "Primesrc",
+      version: "1.0.0",
+      active: false,
+      language: "en",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/en"
+    },
+    nepu: {
+      name: "Nepu",
+      version: "1.0.0",
+      active: false,
+      language: "en",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/en"
+    },
+    goojara: {
+      name: "Goojara",
+      version: "1.0.0",
+      active: false,
+      language: "en",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/en"
+    },
     ekola405gmt: {
       name: "Ekola405gmt",
       version: "1.0.0",
@@ -13350,7 +13402,7 @@ var manifest_default = {
     autoembed: {
       name: "AutoEmbed",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: ["en", "fr", "es"],
       type: "media",
       env: "universal",
@@ -13358,10 +13410,87 @@ var manifest_default = {
       priority: 100,
       dir: "providers/media/multi"
     },
+    hdhub4u: {
+      name: "HdHub4u",
+      version: "1.0.0",
+      active: true,
+      language: ["hi", "en"],
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/multi"
+    },
+    "4khdhub": {
+      name: "4KHDHub",
+      version: "1.0.0",
+      active: true,
+      language: ["hi", "en"],
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/multi"
+    },
+    vega: {
+      name: "VMovies",
+      version: "1.0.0",
+      active: true,
+      language: ["hi", "en"],
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/multi"
+    },
+    drive: {
+      name: "MoviesDrive",
+      version: "1.0.0",
+      active: false,
+      language: ["hi", "en"],
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/multi"
+    },
+    "1cinevood": {
+      name: "Cinewood",
+      version: "1.0.0",
+      active: true,
+      language: ["hi", "en"],
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/multi"
+    },
+    cuevana: {
+      name: "Cuevana",
+      version: "1.0.0",
+      active: false,
+      language: ["es"],
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/es"
+    },
+    verhdlink: {
+      name: "VerHdLink",
+      version: "1.0.0",
+      active: true,
+      language: ["es"],
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie"],
+      priority: 100,
+      dir: "providers/media/es"
+    },
     "9filmyzilla": {
       name: "9filmyzilla",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: ["en", "es"],
       type: "media",
       env: "universal",
