@@ -98,7 +98,7 @@ export async function extractStreamwishStreams(
 			playlist: fileUrl,
 			language: meta.language,
 			xhr: {
-				flags: ['cors-blocked'],
+				flags: ['CORS_BLOCKED'],
 				headers: {
 					referer: embedURL.origin + '/',
 					origin: embedURL.origin,

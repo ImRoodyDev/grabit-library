@@ -12540,16 +12540,41 @@ function createModuleWorkers(provider, manifest, workers) {
       return function (_x3, _x4) {
         return _ref2.apply(this, arguments);
       };
+    }()) : void 0,
+    // Lazy resolution: shape the single resolved source like getStreams.
+    resolveLazy: workers.resolveLazy ? (/*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(function* (id, context, requester) {
+        const source = yield workers.resolveLazy(id, context, requester);
+        if (!source) return null;
+        const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
+        return {
+          ...source,
+          xhr: {
+            ...source.xhr,
+            headers: normalizeHeaders({
+              ...source.xhr?.headers,
+              "User-Agent": requester.userAgent
+            })
+          },
+          format,
+          fileName: `[${manifest.name}][${format.toUpperCase()}] - ${source.fileName ?? "Source"} `,
+          providerName: manifest.name,
+          scheme: provider.config.scheme
+        };
+      });
+      return function (_x5, _x6, _x7) {
+        return _ref3.apply(this, arguments);
+      };
     }()) : void 0
   };
 }
-function validateMediaSources(_x5, _x6, _x7) {
+function validateMediaSources(_x8, _x9, _x0) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(function* (source) {
+      var _ref4 = _asyncToGenerator(function* (source) {
         const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
         if (!url) return null;
         const {
@@ -12561,21 +12586,21 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x18) {
-        return _ref3.apply(this, arguments);
+      return function (_x21) {
+        return _ref4.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x8, _x9, _x0) {
+function validateSubtitleSources(_x1, _x10, _x11) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
   _validateSubtitleSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(function* (source) {
+      var _ref5 = _asyncToGenerator(function* (source) {
         if (!source.url) return null;
         const {
           ok
@@ -12586,8 +12611,8 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x19) {
-        return _ref4.apply(this, arguments);
+      return function (_x22) {
+        return _ref5.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
@@ -13254,7 +13279,7 @@ var PROVIDER = Provider.create(config);
 
 // providers/media/en/xpass2/stream.ts
 var MAX_SOURCES = 8;
-function getStreams(_x1, _x10) {
+function getStreams(_x12, _x13) {
   return _getStreams.apply(this, arguments);
 }
 function _getStreams() {
@@ -13283,7 +13308,7 @@ function _getStreams() {
   });
   return _getStreams.apply(this, arguments);
 }
-function resolveViaXhr(_x11, _x12, _x13, _x14) {
+function resolveViaXhr(_x14, _x15, _x16, _x17) {
   return _resolveViaXhr.apply(this, arguments);
 }
 function _resolveViaXhr() {
@@ -13384,7 +13409,7 @@ function _resolveViaXhr() {
   });
   return _resolveViaXhr.apply(this, arguments);
 }
-function resolveViaPuppeteer(_x15, _x16, _x17) {
+function resolveViaPuppeteer(_x18, _x19, _x20) {
   return _resolveViaPuppeteer.apply(this, arguments);
 }
 function _resolveViaPuppeteer() {
@@ -13399,7 +13424,7 @@ function _resolveViaPuppeteer() {
         }
       });
       const result = yield session.page.evaluate(/*#__PURE__*/function () {
-        var _ref5 = _asyncToGenerator(function* (maxSources) {
+        var _ref6 = _asyncToGenerator(function* (maxSources) {
           const html = document.documentElement.outerHTML;
           const dataUrl = (html.match(/var\s+dataUrl\s*=\s*["']([^"']+)["']/) || [])[1];
           if (!dataUrl) return {
@@ -13438,8 +13463,8 @@ function _resolveViaPuppeteer() {
             streams
           };
         });
-        return function (_x20) {
-          return _ref5.apply(this, arguments);
+        return function (_x23) {
+          return _ref6.apply(this, arguments);
         };
       }(), MAX_SOURCES);
       return result.streams || [];
@@ -13472,7 +13497,7 @@ function toSources(streams, referer, base) {
     language: "en",
     format: "m3u8",
     xhr: {
-      flags: ["cors-blocked"],
+      flags: ["CORS_BLOCKED"],
       headers: {
         Referer: referer,
         Origin: base.origin

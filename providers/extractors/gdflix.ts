@@ -139,7 +139,7 @@ export async function extractGdflixStreams(
 			playlist: r.url,
 			language: meta.language,
 			...(format ? { format } : {}),
-			xhr: { flags: ['cors-blocked'], headers: { 'User-Agent': GDFLIX_UA } },
+			xhr: { flags: ['CORS_BLOCKED'], headers: { 'User-Agent': GDFLIX_UA } },
 		} satisfies InternalMediaSource;
 	});
 }

@@ -52,15 +52,20 @@ extract). Never jump to puppeteer before ruling out an app-level Referer/cookie/
   (Filemoon/Streamwish/Mixdrop/Dood/Supervideo/Dropload) via `extractors/embedDispatch`.
 - **`xhr.flags`** (`SourceFlag[]`, replaces the old `haveCorsPolicy` boolean) — set the
   consumption hints that apply so the host plays the source correctly:
-  `cors-blocked` (direct fetch blocked → needs proxy), `referer-locked` (needs the Referer in
-  `xhr.headers`), `ip-locked` (URL bound to the scraper IP), `geo-blocked`, `proxy-only`,
-  `external`. e.g. a HubCloud/vcloud stream that needs a Referer → `flags: ['cors-blocked','referer-locked']`.
+  `CORS_BLOCKED` (direct fetch blocked → needs proxy), `REFERER_LOCKED` (needs the Referer in
+  `xhr.headers`), `IP_LOCKED` (URL bound to the scraper IP), `GEO_BLOCKED`, `PROXY_ONLY`,
+  `EXTERNAL`. e.g. a HubCloud/vcloud stream that needs a Referer → `flags: ['CORS_BLOCKED','REFERER_LOCKED']`.
 - **Engine HTTP options** (opt-in on `ctx.xhr.fetch`, for multi-hop/heavy sites): `cookieJar`
-  (a `CookieJar` that carries cookies across hops — no manual `createCookiesFromSet`),
-  `proxyAuth` (`Proxy-Authorization` value), `maxHostConcurrency`, `honorRateLimit`, `coalesce`.
-- **CF-solving**: use `ctx.puppeteer` on Node; where available prefer `ctx.solveChallenge(url)`
-  (portable — RN hidden WebView / server FlareSolverr). **Lazy sources**: return `{ ..., lazy:{id} }`
-  to defer final resolution to play time.
+  (a `CookieJar` that carries cookies across hops — no manual `createCookiesFromSet`).
+  `maxHostConcurrency` (default 10), `honorRateLimit` and `coalesce` are **on by default from
+  `config.xhr`** — set them there to override, not per fetch. Proxy is host-config on the
+  manager/requester (`proxy: { agent, auth? } | { resolver, headers? }`), never a provider fetch option.
+- **CF-solving**: `ctx.solveChallenge(url, requester, { waitForCookie:'cf_clearance' })` →
+  `{ html, cookies, cookieMap, userAgent }` (puppeteer on Node; the host injects an RN
+  hidden-WebView / FlareSolverr solver via `setChallengeSolver`). Feed the cookies into a
+  `CookieJar` for the next hops. Raw `ctx.puppeteer` is still there for network-listener flows.
+- **Lazy sources** (item 8): return `{ ..., lazy:{ id } }` and export a
+  `resolveLazy(id, ctx, requester)` worker; the host resolves the final URL on play.
 - **Comments**: short and simple — **max 2 lines**, only where intent isn't obvious. No verbose
   blocks or heavy JSDoc.
 

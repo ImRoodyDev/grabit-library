@@ -12524,16 +12524,41 @@ function createModuleWorkers(provider, manifest, workers) {
       return function (_x3, _x4) {
         return _ref2.apply(this, arguments);
       };
+    }()) : void 0,
+    // Lazy resolution: shape the single resolved source like getStreams.
+    resolveLazy: workers.resolveLazy ? (/*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(function* (id, context, requester) {
+        const source = yield workers.resolveLazy(id, context, requester);
+        if (!source) return null;
+        const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
+        return {
+          ...source,
+          xhr: {
+            ...source.xhr,
+            headers: normalizeHeaders({
+              ...source.xhr?.headers,
+              "User-Agent": requester.userAgent
+            })
+          },
+          format,
+          fileName: `[${manifest.name}][${format.toUpperCase()}] - ${source.fileName ?? "Source"} `,
+          providerName: manifest.name,
+          scheme: provider.config.scheme
+        };
+      });
+      return function (_x5, _x6, _x7) {
+        return _ref3.apply(this, arguments);
+      };
     }()) : void 0
   };
 }
-function validateMediaSources(_x5, _x6, _x7) {
+function validateMediaSources(_x8, _x9, _x0) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(function* (source) {
+      var _ref4 = _asyncToGenerator(function* (source) {
         const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
         if (!url) return null;
         const {
@@ -12545,21 +12570,21 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x51) {
-        return _ref3.apply(this, arguments);
+      return function (_x54) {
+        return _ref4.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x8, _x9, _x0) {
+function validateSubtitleSources(_x1, _x10, _x11) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
   _validateSubtitleSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(function* (source) {
+      var _ref5 = _asyncToGenerator(function* (source) {
         if (!source.url) return null;
         const {
           ok
@@ -12570,8 +12595,8 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x52) {
-        return _ref4.apply(this, arguments);
+      return function (_x55) {
+        return _ref5.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
@@ -13310,7 +13335,7 @@ function getRedirectedPixelDrainUrl(...htmlSources) {
   }
   return "";
 }
-function fetchTextWithCloudflareFallback(_x1, _x10, _x11, _x12, _x13) {
+function fetchTextWithCloudflareFallback(_x12, _x13, _x14, _x15, _x16) {
   return _fetchTextWithCloudflareFallback.apply(this, arguments);
 }
 function _fetchTextWithCloudflareFallback() {
@@ -13362,7 +13387,7 @@ function _fetchTextWithCloudflareFallback() {
   });
   return _fetchTextWithCloudflareFallback.apply(this, arguments);
 }
-function extractHubcloudStreams(_x14, _x15, _x16, _x17) {
+function extractHubcloudStreams(_x17, _x18, _x19, _x20) {
   return _extractHubcloudStreams.apply(this, arguments);
 }
 function _extractHubcloudStreams() {
@@ -13382,7 +13407,7 @@ function _extractHubcloudStreams() {
   });
   return _extractHubcloudStreams.apply(this, arguments);
 }
-function handleSearchRecover(_x18, _x19, _x20, _x21, _x22, _x23) {
+function handleSearchRecover(_x21, _x22, _x23, _x24, _x25, _x26) {
   return _handleSearchRecover.apply(this, arguments);
 }
 function _handleSearchRecover() {
@@ -13446,7 +13471,7 @@ function _handleSearchRecover() {
   });
   return _handleSearchRecover.apply(this, arguments);
 }
-function resolveDrivePage(_x24, _x25, _x26, _x27, _x28, _x29) {
+function resolveDrivePage(_x27, _x28, _x29, _x30, _x31, _x32) {
   return _resolveDrivePage.apply(this, arguments);
 }
 function _resolveDrivePage() {
@@ -13531,7 +13556,7 @@ function _resolveDrivePage() {
           format
         } : {}),
         xhr: {
-          flags: ["cors-blocked"],
+          flags: ["CORS_BLOCKED"],
           headers: {}
         }
       };
@@ -13539,7 +13564,7 @@ function _resolveDrivePage() {
   });
   return _resolveDrivePage.apply(this, arguments);
 }
-function resolveNestedHubcloud(_x30, _x31, _x32, _x33, _x34) {
+function resolveNestedHubcloud(_x33, _x34, _x35, _x36, _x37) {
   return _resolveNestedHubcloud.apply(this, arguments);
 }
 function _resolveNestedHubcloud() {
@@ -13636,7 +13661,7 @@ var VEGA_HEADERS = {
   cookie: "xla=s4t"
 };
 var MAX_CANDIDATES = 3;
-function getStreams(_x35, _x36) {
+function getStreams(_x38, _x39) {
   return _getStreams.apply(this, arguments);
 }
 function _getStreams() {
@@ -13694,7 +13719,7 @@ function _getStreams() {
   });
   return _getStreams.apply(this, arguments);
 }
-function searchPosts(_x37, _x38, _x39) {
+function searchPosts(_x40, _x41, _x42) {
   return _searchPosts.apply(this, arguments);
 }
 function _searchPosts() {
@@ -13733,7 +13758,7 @@ function _searchPosts() {
   });
   return _searchPosts.apply(this, arguments);
 }
-function getCandidateLinks(_x40, _x41, _x42, _x43) {
+function getCandidateLinks(_x43, _x44, _x45, _x46) {
   return _getCandidateLinks.apply(this, arguments);
 }
 function _getCandidateLinks() {
@@ -13799,7 +13824,7 @@ function _getCandidateLinks() {
   });
   return _getCandidateLinks.apply(this, arguments);
 }
-function getEpisodeList(_x44, _x45, _x46, _x47) {
+function getEpisodeList(_x47, _x48, _x49, _x50) {
   return _getEpisodeList.apply(this, arguments);
 }
 function _getEpisodeList() {
@@ -13833,7 +13858,7 @@ function _getEpisodeList() {
   });
   return _getEpisodeList.apply(this, arguments);
 }
-function resolveVegaLink(_x48, _x49, _x50) {
+function resolveVegaLink(_x51, _x52, _x53) {
   return _resolveVegaLink.apply(this, arguments);
 }
 function _resolveVegaLink() {

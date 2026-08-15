@@ -12533,16 +12533,41 @@ function createModuleWorkers(provider, manifest, workers) {
       return function (_x4, _x5) {
         return _ref2.apply(this, arguments);
       };
+    }()) : void 0,
+    // Lazy resolution: shape the single resolved source like getStreams.
+    resolveLazy: workers.resolveLazy ? (/*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(function* (id, context, requester) {
+        const source = yield workers.resolveLazy(id, context, requester);
+        if (!source) return null;
+        const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
+        return {
+          ...source,
+          xhr: {
+            ...source.xhr,
+            headers: normalizeHeaders({
+              ...source.xhr?.headers,
+              "User-Agent": requester.userAgent
+            })
+          },
+          format,
+          fileName: `[${manifest.name}][${format.toUpperCase()}] - ${source.fileName ?? "Source"} `,
+          providerName: manifest.name,
+          scheme: provider.config.scheme
+        };
+      });
+      return function (_x6, _x7, _x8) {
+        return _ref3.apply(this, arguments);
+      };
     }()) : void 0
   };
 }
-function validateMediaSources(_x6, _x7, _x8) {
+function validateMediaSources(_x9, _x0, _x1) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(function* (source) {
+      var _ref4 = _asyncToGenerator(function* (source) {
         const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
         if (!url) return null;
         const {
@@ -12554,21 +12579,21 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x56) {
-        return _ref3.apply(this, arguments);
+      return function (_x59) {
+        return _ref4.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x9, _x0, _x1) {
+function validateSubtitleSources(_x10, _x11, _x12) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
   _validateSubtitleSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(function* (source) {
+      var _ref5 = _asyncToGenerator(function* (source) {
         if (!source.url) return null;
         const {
           ok
@@ -12579,8 +12604,8 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x57) {
-        return _ref4.apply(this, arguments);
+      return function (_x60) {
+        return _ref5.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
@@ -13319,7 +13344,7 @@ function getRedirectedPixelDrainUrl(...htmlSources) {
   }
   return "";
 }
-function fetchTextWithCloudflareFallback(_x10, _x11, _x12, _x13, _x14) {
+function fetchTextWithCloudflareFallback(_x13, _x14, _x15, _x16, _x17) {
   return _fetchTextWithCloudflareFallback.apply(this, arguments);
 }
 function _fetchTextWithCloudflareFallback() {
@@ -13371,7 +13396,7 @@ function _fetchTextWithCloudflareFallback() {
   });
   return _fetchTextWithCloudflareFallback.apply(this, arguments);
 }
-function extractHubcloudStreams(_x15, _x16, _x17, _x18) {
+function extractHubcloudStreams(_x18, _x19, _x20, _x21) {
   return _extractHubcloudStreams.apply(this, arguments);
 }
 function _extractHubcloudStreams() {
@@ -13391,7 +13416,7 @@ function _extractHubcloudStreams() {
   });
   return _extractHubcloudStreams.apply(this, arguments);
 }
-function handleSearchRecover(_x19, _x20, _x21, _x22, _x23, _x24) {
+function handleSearchRecover(_x22, _x23, _x24, _x25, _x26, _x27) {
   return _handleSearchRecover.apply(this, arguments);
 }
 function _handleSearchRecover() {
@@ -13455,7 +13480,7 @@ function _handleSearchRecover() {
   });
   return _handleSearchRecover.apply(this, arguments);
 }
-function resolveDrivePage(_x25, _x26, _x27, _x28, _x29, _x30) {
+function resolveDrivePage(_x28, _x29, _x30, _x31, _x32, _x33) {
   return _resolveDrivePage.apply(this, arguments);
 }
 function _resolveDrivePage() {
@@ -13540,7 +13565,7 @@ function _resolveDrivePage() {
           format
         } : {}),
         xhr: {
-          flags: ["cors-blocked"],
+          flags: ["CORS_BLOCKED"],
           headers: {}
         }
       };
@@ -13548,7 +13573,7 @@ function _resolveDrivePage() {
   });
   return _resolveDrivePage.apply(this, arguments);
 }
-function resolveNestedHubcloud(_x31, _x32, _x33, _x34, _x35) {
+function resolveNestedHubcloud(_x34, _x35, _x36, _x37, _x38) {
   return _resolveNestedHubcloud.apply(this, arguments);
 }
 function _resolveNestedHubcloud() {
@@ -13642,7 +13667,7 @@ function pickBestPost(posts, media, minScore = 45) {
 var HEADERS = {};
 var MAX_CANDIDATES = 3;
 var POST_SELECTORS = [".pstr_box", "article", ".result-item", ".post", ".item", ".thumbnail", ".latest-movies", ".movie-item", ".ml-item", ".cv-post"].join(",");
-function loadPageWithCF(_x36, _x37, _x38, _x39) {
+function loadPageWithCF(_x39, _x40, _x41, _x42) {
   return _loadPageWithCF.apply(this, arguments);
 }
 function _loadPageWithCF() {
@@ -13685,7 +13710,7 @@ function _loadPageWithCF() {
   });
   return _loadPageWithCF.apply(this, arguments);
 }
-function getStreams(_x40, _x41) {
+function getStreams(_x43, _x44) {
   return _getStreams.apply(this, arguments);
 }
 function _getStreams() {
@@ -13744,7 +13769,7 @@ function _getStreams() {
   });
   return _getStreams.apply(this, arguments);
 }
-function searchPosts(_x42, _x43, _x44, _x45) {
+function searchPosts(_x45, _x46, _x47, _x48) {
   return _searchPosts.apply(this, arguments);
 }
 function _searchPosts() {
@@ -13822,7 +13847,7 @@ function parseAnchorFallback($, baseUrl) {
 function cleanCardTitle(raw) {
   return raw.replace(/\[.*?\]/g, "").replace(/\s{2,}/g, " ").trim();
 }
-function getCandidateLinks(_x46, _x47, _x48, _x49) {
+function getCandidateLinks(_x49, _x50, _x51, _x52) {
   return _getCandidateLinks.apply(this, arguments);
 }
 function _getCandidateLinks() {
@@ -13891,7 +13916,7 @@ function _getCandidateLinks() {
   });
   return _getCandidateLinks.apply(this, arguments);
 }
-function getEpisodesFromApi(_x50, _x51, _x52) {
+function getEpisodesFromApi(_x53, _x54, _x55) {
   return _getEpisodesFromApi.apply(this, arguments);
 }
 function _getEpisodesFromApi() {
@@ -13920,7 +13945,7 @@ function _getEpisodesFromApi() {
   });
   return _getEpisodesFromApi.apply(this, arguments);
 }
-function resolveCinevoodLink(_x53, _x54, _x55) {
+function resolveCinevoodLink(_x56, _x57, _x58) {
   return _resolveCinevoodLink.apply(this, arguments);
 }
 function _resolveCinevoodLink() {

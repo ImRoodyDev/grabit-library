@@ -12694,16 +12694,41 @@ function createModuleWorkers(provider, manifest, workers) {
       return function (_x3, _x4) {
         return _ref2.apply(this, arguments);
       };
+    }()) : void 0,
+    // Lazy resolution: shape the single resolved source like getStreams.
+    resolveLazy: workers.resolveLazy ? (/*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(function* (id, context, requester) {
+        const source = yield workers.resolveLazy(id, context, requester);
+        if (!source) return null;
+        const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
+        return {
+          ...source,
+          xhr: {
+            ...source.xhr,
+            headers: normalizeHeaders({
+              ...source.xhr?.headers,
+              "User-Agent": requester.userAgent
+            })
+          },
+          format,
+          fileName: `[${manifest.name}][${format.toUpperCase()}] - ${source.fileName ?? "Source"} `,
+          providerName: manifest.name,
+          scheme: provider.config.scheme
+        };
+      });
+      return function (_x5, _x6, _x7) {
+        return _ref3.apply(this, arguments);
+      };
     }()) : void 0
   };
 }
-function validateMediaSources(_x5, _x6, _x7) {
+function validateMediaSources(_x8, _x9, _x0) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(function* (source) {
+      var _ref4 = _asyncToGenerator(function* (source) {
         const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
         if (!url) return null;
         const {
@@ -12715,21 +12740,21 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x39) {
-        return _ref3.apply(this, arguments);
+      return function (_x42) {
+        return _ref4.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x8, _x9, _x0) {
+function validateSubtitleSources(_x1, _x10, _x11) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
   _validateSubtitleSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(function* (source) {
+      var _ref5 = _asyncToGenerator(function* (source) {
         if (!source.url) return null;
         const {
           ok
@@ -12740,8 +12765,8 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x40) {
-        return _ref4.apply(this, arguments);
+      return function (_x43) {
+        return _ref5.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
@@ -13519,7 +13544,7 @@ var config = {
 var PROVIDER = Provider.create(config);
 
 // providers/extractors/streamwish.ts
-function extractStreamwishStreams(_x1, _x10, _x11, _x12) {
+function extractStreamwishStreams(_x12, _x13, _x14, _x15) {
   return _extractStreamwishStreams.apply(this, arguments);
 } // providers/extractors/doodstream.ts
 function _extractStreamwishStreams() {
@@ -13576,7 +13601,7 @@ function _extractStreamwishStreams() {
       playlist: fileUrl,
       language: meta.language,
       xhr: {
-        flags: ["cors-blocked"],
+        flags: ["CORS_BLOCKED"],
         headers: {
           referer: embedURL.origin + "/",
           origin: embedURL.origin
@@ -13595,7 +13620,7 @@ function makePlay(token) {
   }
   return `${randomStr}?token=${token}&expiry=${Date.now()}`;
 }
-function extractDoodstreamStreams(_x13, _x14, _x15, _x16) {
+function extractDoodstreamStreams(_x16, _x17, _x18, _x19) {
   return _extractDoodstreamStreams.apply(this, arguments);
 } // providers/extractors/filemoon.ts
 function _extractDoodstreamStreams() {
@@ -13679,7 +13704,7 @@ function _extractDoodstreamStreams() {
   });
   return _extractDoodstreamStreams.apply(this, arguments);
 }
-function extractFilemoonStreams(_x17, _x18, _x19, _x20) {
+function extractFilemoonStreams(_x20, _x21, _x22, _x23) {
   return _extractFilemoonStreams.apply(this, arguments);
 } // providers/extractors/mixdrop.ts
 function _extractFilemoonStreams() {
@@ -13734,7 +13759,7 @@ function _extractFilemoonStreams() {
       playlist: source.file,
       language: meta.language,
       xhr: {
-        flags: ["cors-blocked"],
+        flags: ["CORS_BLOCKED"],
         headers: {
           host: new URL(source.file).host,
           referer: embedURL.origin + "/",
@@ -13745,7 +13770,7 @@ function _extractFilemoonStreams() {
   });
   return _extractFilemoonStreams.apply(this, arguments);
 }
-function extractMixdropStream(_x21, _x22, _x23, _x24) {
+function extractMixdropStream(_x24, _x25, _x26, _x27) {
   return _extractMixdropStream.apply(this, arguments);
 } // providers/extractors/supervideo.ts
 function _extractMixdropStream() {
@@ -13797,14 +13822,14 @@ function _extractMixdropStream() {
       playlist: videoSource,
       language: meta.language,
       xhr: {
-        flags: ["cors-blocked"],
+        flags: ["CORS_BLOCKED"],
         headers: iframeHeaders
       }
     };
   });
   return _extractMixdropStream.apply(this, arguments);
 }
-function extractSupervideoStreams(_x25, _x26, _x27, _x28) {
+function extractSupervideoStreams(_x28, _x29, _x30, _x31) {
   return _extractSupervideoStreams.apply(this, arguments);
 } // providers/extractors/dropload.ts
 function _extractSupervideoStreams() {
@@ -13855,7 +13880,7 @@ function _extractSupervideoStreams() {
       playlist: source.file,
       language: meta.language,
       xhr: {
-        flags: ["cors-blocked"],
+        flags: ["CORS_BLOCKED"],
         headers: {
           host: new URL(source.file).host,
           referer: embedURL.origin + "/",
@@ -13866,7 +13891,7 @@ function _extractSupervideoStreams() {
   });
   return _extractSupervideoStreams.apply(this, arguments);
 }
-function extractDroploadStreams(_x29, _x30, _x31, _x32) {
+function extractDroploadStreams(_x32, _x33, _x34, _x35) {
   return _extractDroploadStreams.apply(this, arguments);
 } // providers/extractors/embedDispatch.ts
 function _extractDroploadStreams() {
@@ -13921,7 +13946,7 @@ function _extractDroploadStreams() {
       playlist: source.file,
       language: meta.language,
       xhr: {
-        flags: ["cors-blocked"],
+        flags: ["CORS_BLOCKED"],
         headers: {
           host: new URL(source.file).host,
           referer: resourceURL.origin + "/",
@@ -13932,7 +13957,7 @@ function _extractDroploadStreams() {
   });
   return _extractDroploadStreams.apply(this, arguments);
 }
-function dispatchEmbed(_x33, _x34, _x35, _x36) {
+function dispatchEmbed(_x36, _x37, _x38, _x39) {
   return _dispatchEmbed.apply(this, arguments);
 } // providers/media/en/goojara/stream.ts
 function _dispatchEmbed() {
@@ -13974,7 +13999,7 @@ function _dispatchEmbed() {
   });
   return _dispatchEmbed.apply(this, arguments);
 }
-function getStreams(_x37, _x38) {
+function getStreams(_x40, _x41) {
   return _getStreams.apply(this, arguments);
 } // providers/media/en/goojara/index.ts
 function _getStreams() {
@@ -13994,7 +14019,7 @@ function _getStreams() {
       });
       const page = session.page;
       const resolved = yield page.evaluate(/*#__PURE__*/function () {
-        var _ref5 = _asyncToGenerator(function* (title, wantType2, seasonEp) {
+        var _ref6 = _asyncToGenerator(function* (title, wantType2, seasonEp) {
           const norm = s => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
           const searchHtml = yield (yield fetch("/xhrr.php", {
             method: "POST",
@@ -14054,8 +14079,8 @@ function _getStreams() {
             goLinks: Array.from(new Set(goLinks))
           };
         });
-        return function (_x41, _x42, _x43) {
-          return _ref5.apply(this, arguments);
+        return function (_x44, _x45, _x46) {
+          return _ref6.apply(this, arguments);
         };
       }(), media.title, wantType, media.type === "serie" ? {
         season: media.season,

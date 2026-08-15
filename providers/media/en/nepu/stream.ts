@@ -109,7 +109,7 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 				playlist,
 				language: 'en',
 				format: 'm3u8',
-				xhr: { flags: ['cors-blocked'], headers: { Origin: embedOrigin, Referer: embedReferer } },
+				xhr: { flags: ['CORS_BLOCKED'], headers: { Origin: embedOrigin, Referer: embedReferer } },
 			} satisfies InternalMediaSource,
 		];
 	} catch (error) {

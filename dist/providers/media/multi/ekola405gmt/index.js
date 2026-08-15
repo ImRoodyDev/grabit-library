@@ -12667,16 +12667,41 @@ function createModuleWorkers(provider, manifest, workers) {
       return function (_x3, _x4) {
         return _ref2.apply(this, arguments);
       };
+    }()) : void 0,
+    // Lazy resolution: shape the single resolved source like getStreams.
+    resolveLazy: workers.resolveLazy ? (/*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(function* (id, context, requester) {
+        const source = yield workers.resolveLazy(id, context, requester);
+        if (!source) return null;
+        const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
+        return {
+          ...source,
+          xhr: {
+            ...source.xhr,
+            headers: normalizeHeaders({
+              ...source.xhr?.headers,
+              "User-Agent": requester.userAgent
+            })
+          },
+          format,
+          fileName: `[${manifest.name}][${format.toUpperCase()}] - ${source.fileName ?? "Source"} `,
+          providerName: manifest.name,
+          scheme: provider.config.scheme
+        };
+      });
+      return function (_x5, _x6, _x7) {
+        return _ref3.apply(this, arguments);
+      };
     }()) : void 0
   };
 }
-function validateMediaSources(_x5, _x6, _x7) {
+function validateMediaSources(_x8, _x9, _x0) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(function* (source) {
+      var _ref4 = _asyncToGenerator(function* (source) {
         const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
         if (!url) return null;
         const {
@@ -12688,21 +12713,21 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x34) {
-        return _ref3.apply(this, arguments);
+      return function (_x37) {
+        return _ref4.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x8, _x9, _x0) {
+function validateSubtitleSources(_x1, _x10, _x11) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
   _validateSubtitleSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(function* (source) {
+      var _ref5 = _asyncToGenerator(function* (source) {
         if (!source.url) return null;
         const {
           ok
@@ -12713,8 +12738,8 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x35) {
-        return _ref4.apply(this, arguments);
+      return function (_x38) {
+        return _ref5.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
@@ -13399,7 +13424,7 @@ var COMMON_HEADERS = {
   "sec-ch-ua-mobile": "?0",
   "sec-ch-ua-platform": '"Windows"'
 };
-function getStreams(_x1, _x10) {
+function getStreams(_x12, _x13) {
   return _getStreams.apply(this, arguments);
 }
 function _getStreams() {
@@ -13435,7 +13460,7 @@ function makeYmCookies() {
   const uid = `${now}${Math.floor(Math.random() * 1e9).toString().padStart(9, "0")}`;
   return `_ym_uid=${uid}; _ym_d=${now}; _ym_isad=2`;
 }
-function getPlayerConfig(_x11, _x12, _x13, _x14) {
+function getPlayerConfig(_x14, _x15, _x16, _x17) {
   return _getPlayerConfig.apply(this, arguments);
 }
 function _getPlayerConfig() {
@@ -13471,7 +13496,7 @@ function _getPlayerConfig() {
   });
   return _getPlayerConfig.apply(this, arguments);
 }
-function getStreamSources(_x15, _x16, _x17, _x18, _x19) {
+function getStreamSources(_x18, _x19, _x20, _x21, _x22) {
   return _getStreamSources.apply(this, arguments);
 }
 function _getStreamSources() {
@@ -13505,7 +13530,7 @@ function _getStreamSources() {
   });
   return _getStreamSources.apply(this, arguments);
 }
-function resolveServers(_x20, _x21, _x22, _x23, _x24, _x25) {
+function resolveServers(_x23, _x24, _x25, _x26, _x27, _x28) {
   return _resolveServers.apply(this, arguments);
 }
 function _resolveServers() {
@@ -13550,7 +13575,7 @@ function _resolveServers() {
   });
   return _resolveServers.apply(this, arguments);
 }
-function resolveStreamURL(_x26, _x27, _x28, _x29, _x30, _x31, _x32, _x33) {
+function resolveStreamURL(_x29, _x30, _x31, _x32, _x33, _x34, _x35, _x36) {
   return _resolveStreamURL.apply(this, arguments);
 }
 function _resolveStreamURL() {
