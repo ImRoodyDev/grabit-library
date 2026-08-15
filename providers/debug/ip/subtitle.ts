@@ -24,7 +24,7 @@ export async function getSubtitles(requester: ScrapeRequester, ctx: ProviderCont
 				languageName: sub.languageName,
 				url: sub.url,
 			})),
-			xhr: { haveCorsPolicy: false, headers: {} },
+			xhr: { flags: [], headers: {} },
 		},
 	];
 }

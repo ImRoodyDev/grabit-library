@@ -54,7 +54,7 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 		format: server.format,
 		language: server.language,
 		playlist: server.url,
-		xhr: { haveCorsPolicy: false, headers: server.headers },
+		xhr: { flags: [], headers: server.headers },
 	}));
 
 	return results;

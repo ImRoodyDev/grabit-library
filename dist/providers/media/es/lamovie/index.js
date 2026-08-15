@@ -13312,7 +13312,7 @@ var manifest_default = {
     xpass: {
       name: "Xpass",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: "en",
       type: "media",
       env: "universal",
@@ -13592,7 +13592,7 @@ function _extractGoodstreamStreams() {
       playlist: source.file,
       language: meta.language,
       xhr: {
-        haveCorsPolicy: false,
+        flags: [],
         headers: {
           "content-cache": "no-cache",
           host: new URL(source.file).host,
@@ -13655,7 +13655,7 @@ function _extractVimeosStreams() {
       playlist: source.file,
       language: meta.language,
       xhr: {
-        haveCorsPolicy: false,
+        flags: [],
         headers: {
           "content-cache": "no-cache",
           host: new URL(source.file).host,
@@ -13722,7 +13722,7 @@ function _extractFilemoonStreams() {
       playlist: source.file,
       language: meta.language,
       xhr: {
-        haveCorsPolicy: true,
+        flags: ["cors-blocked"],
         headers: {
           host: new URL(source.file).host,
           referer: embedURL.origin + "/",

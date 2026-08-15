@@ -13352,7 +13352,7 @@ var manifest_default = {
     xpass: {
       name: "Xpass",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: "en",
       type: "media",
       env: "universal",
@@ -13638,7 +13638,7 @@ function _extractStreamwishStreams() {
       playlist: fileUrl,
       language: meta.language,
       xhr: {
-        haveCorsPolicy: true,
+        flags: ["cors-blocked"],
         headers: {
           referer: embedURL.origin + "/",
           origin: embedURL.origin
@@ -13731,7 +13731,7 @@ function _extractDoodstreamStreams() {
       playlist: videoUrl,
       language: meta.language,
       xhr: {
-        haveCorsPolicy: false,
+        flags: [],
         headers: {
           referer: resourceURL.origin + "/",
           origin: resourceURL.origin
@@ -13796,7 +13796,7 @@ function _extractFilemoonStreams() {
       playlist: source.file,
       language: meta.language,
       xhr: {
-        haveCorsPolicy: true,
+        flags: ["cors-blocked"],
         headers: {
           host: new URL(source.file).host,
           referer: embedURL.origin + "/",
@@ -13859,7 +13859,7 @@ function _extractMixdropStream() {
       playlist: videoSource,
       language: meta.language,
       xhr: {
-        haveCorsPolicy: true,
+        flags: ["cors-blocked"],
         headers: iframeHeaders
       }
     };
@@ -13917,7 +13917,7 @@ function _extractSupervideoStreams() {
       playlist: source.file,
       language: meta.language,
       xhr: {
-        haveCorsPolicy: true,
+        flags: ["cors-blocked"],
         headers: {
           host: new URL(source.file).host,
           referer: embedURL.origin + "/",

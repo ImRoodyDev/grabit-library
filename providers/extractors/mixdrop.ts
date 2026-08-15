@@ -86,7 +86,7 @@ export async function extractMixdropStream(
 		playlist: videoSource,
 		language: meta.language,
 		xhr: {
-			haveCorsPolicy: true,
+			flags: ['cors-blocked'],
 			headers: iframeHeaders,
 		},
 	} satisfies InternalMediaSource;

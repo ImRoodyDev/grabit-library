@@ -47,9 +47,20 @@ extract). Never jump to puppeteer before ruling out an app-level Referer/cookie/
   → raw `Response` (`.status`, `.headers.get()`, `.text()`, `.url`). Read `.text()` then
   `JSON.parse` so you can detect challenges. Cookies: `createCookiesFromSet(res.headers)` → forward.
 - **Cheerio**: `ctx.cheerio.$load(html)` / `ctx.cheerio.load(url, requestOpt, ctx.xhr)`.
-- **Return** `InternalMediaSource[]` `{ fileName, playlist, language, format?, xhr:{ haveCorsPolicy, headers } }`;
+- **Return** `InternalMediaSource[]` `{ fileName, playlist, language, format?, xhr:{ flags, headers } }`;
   `[]` (never throw) for unsupported types / no results. Dispatch known embed hosts
   (Filemoon/Streamwish/Mixdrop/Dood/Supervideo/Dropload) via `extractors/embedDispatch`.
+- **`xhr.flags`** (`SourceFlag[]`, replaces the old `haveCorsPolicy` boolean) — set the
+  consumption hints that apply so the host plays the source correctly:
+  `cors-blocked` (direct fetch blocked → needs proxy), `referer-locked` (needs the Referer in
+  `xhr.headers`), `ip-locked` (URL bound to the scraper IP), `geo-blocked`, `proxy-only`,
+  `external`. e.g. a HubCloud/vcloud stream that needs a Referer → `flags: ['cors-blocked','referer-locked']`.
+- **Engine HTTP options** (opt-in on `ctx.xhr.fetch`, for multi-hop/heavy sites): `cookieJar`
+  (a `CookieJar` that carries cookies across hops — no manual `createCookiesFromSet`),
+  `proxyAuth` (`Proxy-Authorization` value), `maxHostConcurrency`, `honorRateLimit`, `coalesce`.
+- **CF-solving**: use `ctx.puppeteer` on Node; where available prefer `ctx.solveChallenge(url)`
+  (portable — RN hidden WebView / server FlareSolverr). **Lazy sources**: return `{ ..., lazy:{id} }`
+  to defer final resolution to play time.
 - **Comments**: short and simple — **max 2 lines**, only where intent isn't obvious. No verbose
   blocks or heavy JSDoc.
 

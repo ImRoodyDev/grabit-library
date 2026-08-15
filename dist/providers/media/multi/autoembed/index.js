@@ -13029,7 +13029,7 @@ var manifest_default = {
     xpass: {
       name: "Xpass",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: "en",
       type: "media",
       env: "universal",
@@ -13345,7 +13345,7 @@ function _getStreams() {
           language: import_iso_639_12.default.getCode(server.language) ?? "en",
           xhr: {
             // I have notice that cf url is not cors blocked
-            haveCorsPolicy: false,
+            flags: [],
             headers: decryptedData.headers
           }
         });

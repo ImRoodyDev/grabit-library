@@ -118,7 +118,7 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 				language: ISO6391.getCode(server.language) ?? 'en',
 				xhr: {
 					// I have notice that cf url is not cors blocked
-					haveCorsPolicy: false,
+					flags: [],
 					headers: decryptedData.headers,
 				},
 			} satisfies InternalMediaSource);

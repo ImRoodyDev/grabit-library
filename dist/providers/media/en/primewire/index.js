@@ -13274,7 +13274,7 @@ var manifest_default = {
     xpass: {
       name: "Xpass",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: "en",
       type: "media",
       env: "universal",
@@ -13561,7 +13561,7 @@ function _extractMixdropStream() {
       playlist: videoSource,
       language: meta.language,
       xhr: {
-        haveCorsPolicy: true,
+        flags: ["cors-blocked"],
         headers: iframeHeaders
       }
     };

@@ -126,7 +126,7 @@ export async function extractDoodstreamStreams(
 		playlist: videoUrl,
 		language: meta.language,
 		xhr: {
-			haveCorsPolicy: false,
+			flags: [],
 			headers: {
 				referer: resourceURL.origin + '/',
 				origin: resourceURL.origin,

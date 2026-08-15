@@ -16,7 +16,7 @@
 		"xpass": {
 			"name": "Xpass",
 			"version": "1.0.0",
-			"active": true,
+			"active": false,
 			"language": "en",
 			"type": "media",
 			"env": "universal",

@@ -84,7 +84,7 @@ export async function extractVimeosStreams(
 				playlist: source.file,
 				language: meta.language,
 				xhr: {
-					haveCorsPolicy: false,
+					flags: [],
 					headers: {
 						'content-cache': 'no-cache',
 						host: new URL(source.file).host,

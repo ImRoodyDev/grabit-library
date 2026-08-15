@@ -305,7 +305,7 @@ async function resolveDrivePage(
 			language: meta.language,
 			...(format ? { format } : {}),
 			xhr: {
-				haveCorsPolicy: true,
+				flags: ['cors-blocked'],
 				headers: {},
 			},
 		} satisfies InternalMediaSource;

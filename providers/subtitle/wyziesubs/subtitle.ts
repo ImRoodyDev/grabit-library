@@ -86,7 +86,7 @@ export async function getSubtitles(
 		format: subtitle.format,
 		languageName: subtitle.display,
 		xhr: {
-			haveCorsPolicy: true,
+			flags: ['cors-blocked'],
 			headers: {},
 		},
 	})) satisfies InternalSubtitleSource[];

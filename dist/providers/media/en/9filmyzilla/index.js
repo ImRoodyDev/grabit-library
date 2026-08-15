@@ -13033,7 +13033,7 @@ var manifest_default = {
     xpass: {
       name: "Xpass",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: "en",
       type: "media",
       env: "universal",
@@ -13325,7 +13325,7 @@ ${sourceUrls.join("\n")}`);
       language: meta.language || "en",
       xhr: {
         // cf URL is typically not CORS-blocked
-        haveCorsPolicy: !!decrypted.cf && decrypted.cf.includes(url),
+        flags: !!decrypted.cf && decrypted.cf.includes(url) ? ["cors-blocked"] : [],
         headers: {
           ...fetchOpts.headers
         }

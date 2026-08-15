@@ -77,7 +77,7 @@ export async function extractCherryUpnsStream(
 				language: meta.language || 'en',
 				xhr: {
 					// cf URL is typically not CORS-blocked
-					haveCorsPolicy: !!decrypted.cf && decrypted.cf.includes(url),
+					flags: !!decrypted.cf && decrypted.cf.includes(url) ? ['cors-blocked'] : [],
 					headers: { ...(fetchOpts.headers as Record<string, string>) },
 				},
 			}) satisfies InternalMediaSource,

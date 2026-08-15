@@ -13162,7 +13162,7 @@ var manifest_default = {
     xpass: {
       name: "Xpass",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: "en",
       type: "media",
       env: "universal",
@@ -13422,7 +13422,7 @@ function _getStreams() {
       language: server.language,
       playlist: server.url,
       xhr: {
-        haveCorsPolicy: false,
+        flags: [],
         headers: server.headers
       }
     }));

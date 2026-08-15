@@ -13004,7 +13004,7 @@ var manifest_default = {
     xpass: {
       name: "Xpass",
       version: "1.0.0",
-      active: true,
+      active: false,
       language: "en",
       type: "media",
       env: "universal",
@@ -13276,7 +13276,7 @@ function _getSubtitles() {
       format: subtitle.format,
       languageName: subtitle.display,
       xhr: {
-        haveCorsPolicy: true,
+        flags: ["cors-blocked"],
         headers: {}
       }
     }));

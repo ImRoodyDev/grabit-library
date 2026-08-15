@@ -209,7 +209,7 @@ function toSources(streams: Stream[], referer: string, base: URL): InternalMedia
 				playlist: s.file,
 				language: 'en',
 				format: 'm3u8',
-				xhr: { haveCorsPolicy: true, headers: { Referer: referer, Origin: base.origin } },
+				xhr: { flags: ['cors-blocked'], headers: { Referer: referer, Origin: base.origin } },
 			}) satisfies InternalMediaSource,
 	);
 }

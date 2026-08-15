@@ -67,7 +67,7 @@ export async function extractSupervideoStreams(
 				playlist: source.file,
 				language: meta.language,
 				xhr: {
-					haveCorsPolicy: true,
+					flags: ['cors-blocked'],
 					headers: {
 						host: new URL(source.file).host,
 						referer: embedURL.origin + '/',

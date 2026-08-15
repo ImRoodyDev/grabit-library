@@ -70,7 +70,7 @@ export async function extractDroploadStreams(
 				playlist: source.file,
 				language: meta.language,
 				xhr: {
-					haveCorsPolicy: true,
+					flags: ['cors-blocked'],
 					headers: {
 						host: new URL(source.file).host,
 						referer: resourceURL.origin + '/',
