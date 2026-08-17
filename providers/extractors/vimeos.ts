@@ -30,7 +30,6 @@ export async function extractVimeosStreams(
 		'sec-fetch-storage-access': 'active',
 		'sec-fetch-user': '?1',
 		'upgrade-insecure-requests': '1',
-		cookie: undefined as any, // Ensure cookies are not sent with the request
 	};
 
 	const iframeOpts: CheerioLoadRequest = {
@@ -84,7 +83,7 @@ export async function extractVimeosStreams(
 				playlist: source.file,
 				language: meta.language,
 				xhr: {
-					haveCorsPolicy: false,
+					flags: [],
 					headers: {
 						'content-cache': 'no-cache',
 						host: new URL(source.file).host,

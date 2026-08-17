@@ -54,7 +54,7 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 		format: server.format,
 		language: server.language,
 		playlist: server.url,
-		xhr: { haveCorsPolicy: false, headers: server.headers },
+		xhr: { flags: [], headers: server.headers },
 	}));
 
 	return results;
@@ -102,7 +102,7 @@ async function getPlayerConfig(
 				'sec-fetch-site': 'cross-site',
 				'sec-fetch-storage-access': 'active',
 				'upgrade-insecure-requests': '1',
-				cookie: ymCookies,
+				cookie: 'ymCookies',
 				Referer: 'https://vegamovies.ad/',
 			},
 		},
@@ -227,7 +227,16 @@ async function resolveServers(
 	const resolved: ResolvedStreamServer[] = [];
 	for (const source of sources) {
 		try {
-			const server = await resolveStreamURL(source, fileURL, fileDir, fileExtension, postHeaders, m3u8Headers, requester, ctx);
+			const server = await resolveStreamURL(
+				source,
+				fileURL,
+				fileDir,
+				fileExtension,
+				postHeaders,
+				m3u8Headers,
+				requester,
+				ctx,
+			);
 			if (server) resolved.push(server);
 		} catch (error) {
 			ctx.log.error(`Error fetching stream for source ${source.title}:`, error);

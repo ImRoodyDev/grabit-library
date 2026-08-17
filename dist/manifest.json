@@ -5,13 +5,87 @@
 		"ip": {
 			"name": "Ipadress Checker",
 			"version": "1.0.0",
+			"active": false,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie",
+				"channel"
+			],
+			"priority": 100,
+			"dir": "providers/debug"
+		},
+		"xpass": {
+			"name": "Xpass",
+			"version": "1.0.0",
+			"active": false,
+			"language": "en",
+			"type": "media",
+			"env": "node",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/en"
+		},
+		"xpass2": {
+			"name": "Xpass2",
+			"version": "1.0.0",
 			"active": true,
 			"language": "en",
 			"type": "media",
 			"env": "universal",
-			"supportedMediaTypes": ["movie", "serie", "channel"],
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
 			"priority": 100,
-			"dir": "providers/debug"
+			"dir": "providers/media/en"
+		},
+		"primesrc": {
+			"name": "Primesrc",
+			"version": "1.0.0",
+			"active": false,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/en"
+		},
+		"nepu": {
+			"name": "Nepu",
+			"version": "1.0.0",
+			"active": true,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/en"
+		},
+		"goojara": {
+			"name": "Goojara",
+			"version": "1.0.0",
+			"active": false,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/en"
 		},
 		"ekola405gmt": {
 			"name": "Ekola405gmt",
@@ -20,29 +94,161 @@
 			"language": "en",
 			"type": "media",
 			"env": "universal",
-			"supportedMediaTypes": ["movie", "serie"],
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
 			"priority": 100,
 			"dir": "providers/media/multi"
 		},
 		"autoembed": {
 			"name": "AutoEmbed",
 			"version": "1.0.0",
-			"active": true,
-			"language": ["en", "fr", "es"],
+			"active": false,
+			"language": [
+				"en",
+				"fr",
+				"es"
+			],
 			"type": "media",
 			"env": "universal",
-			"supportedMediaTypes": ["movie", "serie"],
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
 			"priority": 100,
 			"dir": "providers/media/multi"
+		},
+		"hdhub4u": {
+			"name": "HdHub4u",
+			"version": "1.0.0",
+			"active": true,
+			"language": [
+				"hi",
+				"en"
+			],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"4khdhub": {
+			"name": "4KHDHub",
+			"version": "1.0.0",
+			"active": true,
+			"language": [
+				"hi",
+				"en"
+			],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"vega": {
+			"name": "VMovies",
+			"version": "1.0.0",
+			"active": true,
+			"language": [
+				"hi",
+				"en"
+			],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"drive": {
+			"name": "MoviesDrive",
+			"version": "1.0.0",
+			"active": false,
+			"language": [
+				"hi",
+				"en"
+			],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"1cinevood": {
+			"name": "Cinewood",
+			"version": "1.0.0",
+			"active": true,
+			"language": [
+				"hi",
+				"en"
+			],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"cuevana": {
+			"name": "Cuevana",
+			"version": "1.0.0",
+			"active": false,
+			"language": [
+				"es"
+			],
+			"type": "media",
+			"env": "node",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/es"
+		},
+		"verhdlink": {
+			"name": "VerHdLink",
+			"version": "1.0.0",
+			"active": true,
+			"language": [
+				"es"
+			],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie"
+			],
+			"priority": 100,
+			"dir": "providers/media/es"
 		},
 		"9filmyzilla": {
 			"name": "9filmyzilla",
 			"version": "1.0.0",
-			"active": true,
-			"language": ["en", "es"],
+			"active": false,
+			"language": [
+				"en",
+				"es"
+			],
 			"type": "media",
 			"env": "universal",
-			"supportedMediaTypes": ["movie", "serie"],
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
 			"priority": 100,
 			"dir": "providers/media/en"
 		},
@@ -53,7 +259,10 @@
 			"language": "en",
 			"type": "media",
 			"env": "universal",
-			"supportedMediaTypes": ["movie", "serie"],
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
 			"priority": 100,
 			"dir": "providers/media/en"
 		},
@@ -61,10 +270,17 @@
 			"name": "Repelishd",
 			"version": "1.0.0",
 			"active": true,
-			"language": ["es", "en", "fr"],
+			"language": [
+				"es",
+				"en",
+				"fr"
+			],
 			"type": "media",
 			"env": "universal",
-			"supportedMediaTypes": ["movie", "serie"],
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
 			"priority": 100,
 			"dir": "providers/media/es"
 		},
@@ -75,7 +291,10 @@
 			"language": "es",
 			"type": "media",
 			"env": "universal",
-			"supportedMediaTypes": ["movie", "serie"],
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
 			"priority": 100,
 			"dir": "providers/media/es"
 		},
@@ -84,11 +303,111 @@
 			"version": "1.0.0",
 			"active": true,
 			"language": "*",
-			"type": "media",
+			"type": "subtitle",
 			"env": "universal",
-			"supportedMediaTypes": ["movie", "serie"],
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
 			"priority": 100,
 			"dir": "providers/subtitle"
+		},
+		"vixsrc": {
+			"name": "VixSrc",
+			"version": "1.0.0",
+			"active": true,
+			"language": [
+				"en",
+				"it"
+			],
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"rgshows": {
+			"name": "RgShows",
+			"version": "1.0.0",
+			"active": false,
+			"language": "en",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/multi"
+		},
+		"homecine": {
+			"name": "HomeCine",
+			"version": "1.0.0",
+			"active": true,
+			"language": "es",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"movie",
+				"serie"
+			],
+			"priority": 100,
+			"dir": "providers/media/es"
+		},
+		"iptvorg": {
+			"name": "IPTV-org",
+			"version": "1.0.0",
+			"active": true,
+			"language": "*",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"channel"
+			],
+			"priority": 100,
+			"dir": "providers/live"
+		},
+		"publiciptv": {
+			"name": "Public IPTV",
+			"version": "1.0.0",
+			"active": true,
+			"language": "*",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"channel"
+			],
+			"priority": 100,
+			"dir": "providers/live"
+		},
+		"supercambr": {
+			"name": "SupercamBR",
+			"version": "1.0.0",
+			"active": true,
+			"language": "*",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"channel"
+			],
+			"priority": 100,
+			"dir": "providers/live"
+		},
+		"streamsports": {
+			"name": "StreamSports99",
+			"version": "1.0.0",
+			"active": false,
+			"language": "*",
+			"type": "media",
+			"env": "universal",
+			"supportedMediaTypes": [
+				"channel"
+			],
+			"priority": 100,
+			"dir": "providers/live"
 		}
 	}
 }

@@ -7,7 +7,7 @@ export const config: ProviderConfig = {
 	scheme: 'lamovie',
 	name: 'Lamovie',
 	language: 'es',
-	baseUrl: 'https://la.movie',
+	baseUrl: 'https://lamovie.org',
 	entries: {
 		search_movie: {
 			// endpoint: '/search/{title:form-uri}/',

@@ -5,14 +5,17 @@ import {
 	deduplicateArray,
 	secondsToMilliseconds,
 } from 'grabit-engine';
-import { PROVIDER } from './config';
+import { getKey, PROVIDER } from './config';
 
 /**
  * Subtitle handler for Wyziesubs.
  *
  * Fetches subtitle data from the provider's API.
  */
-export async function getSubtitles(requester: ScrapeRequester, ctx: ProviderContext): Promise<InternalSubtitleSource[]> {
+export async function getSubtitles(
+	requester: ScrapeRequester,
+	ctx: ProviderContext,
+): Promise<InternalSubtitleSource[]> {
 	if (requester.media.type === 'channel') return [];
 
 	// Sources available for subtitle in wyziesubs
@@ -38,6 +41,8 @@ export async function getSubtitles(requester: ScrapeRequester, ctx: ProviderCont
 		subSources.map((source) => {
 			const newUrl = new URL(url.href);
 			newUrl.searchParams.set('source', source);
+			// Add the API key as a query parameter
+			newUrl.searchParams.set('key', getKey());
 			return newUrl;
 		}),
 	);
@@ -79,7 +84,7 @@ export async function getSubtitles(requester: ScrapeRequester, ctx: ProviderCont
 		format: subtitle.format,
 		languageName: subtitle.display,
 		xhr: {
-			haveCorsPolicy: true,
+			flags: ['CORS_BLOCKED'],
 			headers: {},
 		},
 	})) satisfies InternalSubtitleSource[];

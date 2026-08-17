@@ -24,7 +24,6 @@ export async function extractSupervideoStreams(
 			Priority: 'u=0, i',
 			Pragma: 'no-cache',
 			'Cache-Control': 'no-cache',
-			cookie: undefined as any, // Ensure cookies are not sent with the request
 		},
 	};
 
@@ -67,7 +66,7 @@ export async function extractSupervideoStreams(
 				playlist: source.file,
 				language: meta.language,
 				xhr: {
-					haveCorsPolicy: true,
+					flags: ['CORS_BLOCKED'],
 					headers: {
 						host: new URL(source.file).host,
 						referer: embedURL.origin + '/',

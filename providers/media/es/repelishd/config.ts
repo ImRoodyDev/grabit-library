@@ -6,7 +6,7 @@ import { type ProviderConfig, type TProviderSelectors, Provider } from 'grabit-e
 export const config: ProviderConfig = {
 	scheme: 'repelishd',
 	name: 'Repelishd',
-	language: 'es',
+	language: ['es', 'en', 'fr'],
 	baseUrl: 'https://repelishd.run',
 	entries: {
 		movie: {

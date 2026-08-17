@@ -29,7 +29,6 @@ export async function extractGoodstreamStreams(
 			'sec-fetch-site': 'cross-site',
 			'sec-fetch-storage-access': 'active',
 			'upgrade-insecure-requests': '1',
-			cookie: undefined as any, // Ensure cookies are not sent with the request
 		},
 	};
 	const page = await ctx.cheerio.load(embedURL, opts, ctx.xhr);
@@ -64,7 +63,7 @@ export async function extractGoodstreamStreams(
 				playlist: source.file,
 				language: meta.language,
 				xhr: {
-					haveCorsPolicy: false,
+					flags: [],
 					headers: {
 						'content-cache': 'no-cache',
 						host: new URL(source.file).host,

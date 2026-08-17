@@ -6,7 +6,7 @@ import { type ProviderConfig, Provider, TProviderSelectors } from 'grabit-engine
 export const config: ProviderConfig = {
 	scheme: '9filmyzilla',
 	name: '9filmyzilla',
-	language: 'en',
+	language: ['en', 'es'],
 	baseUrl: 'https://9filmyzilla.rest/',
 	entries: {
 		search_movie: {
