@@ -13255,9 +13255,12 @@ var config = {
   contentAreCORSProtected: true
 };
 var PROVIDER = Provider.create(config);
+var API_KEYS = process.env.WYZIE_SUBS_KEYS?.split(",") ?? [""];
+function getKey() {
+  return API_KEYS[Math.floor(Math.random() * API_KEYS.length)] || API_KEYS[0];
+}
 
 // providers/subtitle/wyziesubs/subtitle.ts
-var KEY = "wyzie-6cc153c9149470f286ca7a2cb1334b39";
 function getSubtitles(_x12, _x13) {
   return _getSubtitles.apply(this, arguments);
 } // providers/subtitle/wyziesubs/index.ts
@@ -13269,7 +13272,7 @@ function _getSubtitles() {
     urls = urls.flatMap(url => subSources.map(source => {
       const newUrl = new URL(url.href);
       newUrl.searchParams.set("source", source);
-      newUrl.searchParams.set("key", KEY);
+      newUrl.searchParams.set("key", getKey());
       return newUrl;
     }));
     const subtitleResults = [];

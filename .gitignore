@@ -19,6 +19,8 @@ Desktop.ini
 # Env
 .env
 .env.*
+!.env.example
+!example.env
 
 # Logs
 *.log
