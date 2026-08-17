@@ -13369,10 +13369,10 @@ var manifest_default = {
     nepu: {
       name: "Nepu",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
-      env: "node",
+      env: "universal",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"

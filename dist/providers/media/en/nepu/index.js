@@ -13060,10 +13060,10 @@ var manifest_default = {
     nepu: {
       name: "Nepu",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
-      env: "node",
+      env: "universal",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13266,99 +13266,100 @@ function _getStreams() {
     const referer = base.origin + "/";
     const searchPaths = PROVIDER.createResourceUrls(requester).map(u => u.pathname + u.search);
     const titles = deduplicateArray([media.title, ...(media.localizedTitles ?? [])].filter(Boolean));
-    const wantType = media.type === "movie" ? "Movie" : "Serie";
+    const wantType = media.type === "movie" ? "Movie" : "Shows";
     const seasonEp = media.type === "serie" ? {
       season: media.season,
       episode: media.episode
     } : null;
-    let session = null;
-    try {
-      session = yield ctx.puppeteer.launch(base, {
-        requester,
-        browsingOptions: {
-          ignoreError: true,
-          loadCriteria: "networkidle2"
-        }
-      });
-      const page = session.page;
-      const found = yield page.evaluate(/*#__PURE__*/function () {
-        var _ref6 = _asyncToGenerator(function* (searchPaths2, titles2, wantType2, seasonEp2) {
-          const norm = s => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-          const want = titles2.map(norm);
-          for (const path of searchPaths2) {
-            try {
-              const txt = yield (yield fetch(path, {
-                headers: {
-                  "x-requested-with": "XMLHttpRequest"
-                }
-              })).text();
-              let data;
-              try {
-                data = JSON.parse(txt);
-              } catch {
-                continue;
-              }
-              const items = (data?.data || []).filter(i => i && i.type === wantType2);
-              const show = items.find(i => want.includes(norm(i.name))) || items[0] || null;
-              if (show) {
-                const videoUrl = seasonEp2 ? `${show.url}/season/${seasonEp2.season}/episode/${seasonEp2.episode}` : show.url;
-                return {
-                  name: show.name,
-                  videoUrl
-                };
-              }
-            } catch {}
-          }
-          return {
-            error: "no-match"
-          };
-        });
-        return function (_x16, _x17, _x18, _x19) {
-          return _ref6.apply(this, arguments);
+    const norm = s => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const want = titles.map(norm);
+    const solved = yield ctx.solveChallenge(base, requester, {
+      waitForCookie: "cf_clearance"
+    });
+    const headers = {
+      Referer: referer,
+      ...(solved.cookies ? {
+        cookie: solved.cookies
+      } : {}),
+      ...(solved.userAgent ? {
+        "User-Agent": solved.userAgent
+      } : {})
+    };
+    const ajaxHeaders = {
+      ...headers,
+      "x-requested-with": "XMLHttpRequest"
+    };
+    let found = null;
+    for (const path of searchPaths) {
+      const data = yield ctx.xhr.fetchResponse(new URL(path, base), {
+        method: "GET",
+        clean: true,
+        headers: ajaxHeaders
+      }, requester).catch(() => null);
+      const items = (data?.data || []).filter(i => i && i.type === wantType);
+      const show = items.find(i => want.includes(norm(i.name)) || want.includes(norm(i.second_name))) || items[0];
+      if (show) {
+        const videoUrl = seasonEp ? `${show.url}/season/${seasonEp.season}/episode/${seasonEp.episode}` : show.url;
+        found = {
+          name: show.name,
+          videoUrl
         };
-      }(), searchPaths, titles, wantType, seasonEp);
-      if (!found.videoUrl) {
-        ctx.log.warn("[nepu] No matching item found.");
-        return [];
+        break;
       }
-      ctx.log.info(`[nepu] Best match: "${found.name}" -> ${found.videoUrl}`);
-      const watchHref = new URL(found.videoUrl, base).href;
-      const m3u8Promise = page.waitForResponse(r => /\.m3u8(\?|$)/i.test(r.url()), {
-        timeout: 25e3
-      }).catch(() => null);
-      yield page.goto(watchHref, {
-        waitUntil: "domcontentloaded"
-      }).catch(() => null);
-      yield page.evaluate(() => document.querySelector("a[data-embed]")?.click()).catch(() => null);
-      const resp = yield m3u8Promise;
-      if (!resp) {
-        ctx.log.warn("[nepu] No HLS playlist observed on the watch page.");
-        return [];
-      }
-      const playlist = resp.url();
-      const reqHeaders = resp.request && resp.request().headers && resp.request().headers() || {};
-      const embedReferer = reqHeaders.referer || referer;
-      const embedOrigin = reqHeaders.origin || new URL(playlist).origin;
-      ctx.log.info(`[nepu] Captured HLS: ${playlist}`);
-      return [{
-        fileName: found.name ?? media.title,
-        playlist,
-        language: "en",
-        format: "m3u8",
-        xhr: {
-          flags: ["CORS_BLOCKED"],
-          headers: {
-            Origin: embedOrigin,
-            Referer: embedReferer
-          }
-        }
-      }];
-    } catch (error) {
-      ctx.log.error(`[nepu] Browser flow failed: ${error.message}`);
-      return [];
-    } finally {
-      yield session?.page.close().catch(() => null);
     }
+    if (!found) {
+      ctx.log.warn("[nepu] No matching item found.");
+      return [];
+    }
+    ctx.log.info(`[nepu] Best match: "${found.name}" -> ${found.videoUrl}`);
+    const watchUrl = new URL(found.videoUrl, base);
+    const watchHtml = yield ctx.xhr.fetch(watchUrl, {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      headers
+    }, requester).then(r => r.text()).catch(() => "");
+    const embedId = ctx.cheerio.$load(watchHtml)("[data-embed]").first().attr("data-embed");
+    if (!embedId) {
+      ctx.log.warn("[nepu] No data-embed id on the watch page.");
+      return [];
+    }
+    const embedHtml = yield ctx.xhr.fetch(new URL("/ajax/embed", base), {
+      method: "POST",
+      attachUserAgent: true,
+      clean: true,
+      // This endpoint rejects Impit's TLS fingerprint, so use native fetch here.
+      useImpit: false,
+      // It also 403s without the Origin/accept pair the page itself sends.
+      headers: {
+        ...ajaxHeaders,
+        Referer: watchUrl.href,
+        Origin: base.origin,
+        accept: "*/*",
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8"
+      },
+      body: `id=${encodeURIComponent(embedId)}`
+    }, requester).then(r => r.text()).catch(() => "");
+    const manifest = embedHtml.match(/plainManifestUrl\s*=\s*"([^"]+)"/)?.[1] ?? embedHtml.match(/opaqueManifestUrl\s*=\s*"([^"]+)"/)?.[1];
+    if (!manifest) {
+      ctx.log.warn("[nepu] No manifest URL in the embed response.");
+      return [];
+    }
+    const playlist = new URL(manifest.replace(/\\u0026/g, "&"), base).href;
+    ctx.log.info(`[nepu] Resolved HLS: ${playlist}`);
+    return [{
+      fileName: found.name ?? media.title,
+      playlist,
+      language: "en",
+      format: "m3u8",
+      xhr: {
+        flags: ["CORS_BLOCKED", "REFERER_LOCKED"],
+        headers: {
+          Origin: base.origin,
+          Referer: watchUrl.href
+        }
+      }
+    }];
   });
   return _getStreams.apply(this, arguments);
 }

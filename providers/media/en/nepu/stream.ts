@@ -10,13 +10,15 @@ import { PROVIDER } from './config';
 /**
  * Stream handler for Nepu.
  *
- * Ported from Ciarands/mw-providers `sources/nepu`, adapted for the site's current
- * Cloudflare protection. Flow: `/ajax/posts?q=` JSON search (run inside a
- * CF-solved browser) -> match by type + title -> open the watch/episode page ->
- * let the site's own JS load the player -> capture the `.m3u8` from the network.
+ * Fully HTTP-resolvable chain (no browser needed beyond one challenge solve):
+ *   1. `/ajax/posts?q=` JSON search -> match by type + title -> watch/episode url
+ *   2. watch page HTML -> the play button's `data-embed` id
+ *   3. `POST /ajax/embed` (id=<embed id>) -> a <script> holding the manifest URLs
+ *   4. take `plainManifestUrl` -> absolute `/ajax/hls?f=…&e=…&m=p&s=…`
  *
- * (The old `POST /ajax/embed` shortcut now returns a 403 even in-browser, so we
- * drive the real player instead of replaying it.)
+ * We use `plainManifestUrl`, not `opaqueManifestUrl`: the opaque variant's segment
+ * URLs are encoded and only decodable by the page's custom Hls loader, while the
+ * plain manifest's segments point directly at the CDN.
  */
 export async function getStreams(requester: ScrapeRequester, ctx: ProviderContext): Promise<InternalMediaSource[]> {
 	if (requester.media.type === 'channel') return [];
@@ -28,94 +30,101 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 	const titles = deduplicateArray(
 		[(media as any).title, ...((media as any).localizedTitles ?? [])].filter(Boolean),
 	) as string[];
-	const wantType = media.type === 'movie' ? 'Movie' : 'Serie';
+	// The search API tags series as "Shows".
+	const wantType = media.type === 'movie' ? 'Movie' : 'Shows';
 	const seasonEp =
 		media.type === 'serie'
 			? { season: (media as SerieMedia).season, episode: (media as SerieMedia).episode }
 			: null;
 
-	let session: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;
-	try {
-		session = await ctx.puppeteer.launch(base, {
-			requester,
-			browsingOptions: { ignoreError: true, loadCriteria: 'networkidle2' },
-		});
-		const page = session.page;
+	const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+	const want = titles.map(norm);
 
-		// 1. Search inside the CF-solved context -> resolve the watch/episode URL.
-		const found = (await page.evaluate(
-			async (searchPaths: string[], titles: string[], wantType: string, seasonEp: any) => {
-				const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-				const want = titles.map(norm);
-				for (const path of searchPaths) {
-					try {
-						const txt = await (await fetch(path, { headers: { 'x-requested-with': 'XMLHttpRequest' } })).text();
-						let data: any;
-						try {
-							data = JSON.parse(txt);
-						} catch {
-							continue;
-						}
-						const items = (data?.data || []).filter((i: any) => i && i.type === wantType);
-						const show = items.find((i: any) => want.includes(norm(i.name))) || items[0] || null;
-						if (show) {
-							const videoUrl = seasonEp
-								? `${show.url}/season/${seasonEp.season}/episode/${seasonEp.episode}`
-								: show.url;
-							return { name: show.name as string, videoUrl: videoUrl as string };
-						}
-					} catch {
-						/* next path */
-					}
-				}
-				return { error: 'no-match' as const };
-			},
-			searchPaths,
-			titles,
-			wantType,
-			seasonEp,
-		)) as { name?: string; videoUrl?: string; error?: string };
+	// The site is Cloudflare-gated; solve once, then run the whole chain over ctx.xhr.
+	const solved = await ctx.solveChallenge(base, requester, { waitForCookie: 'cf_clearance' });
+	const headers: Record<string, string> = {
+		Referer: referer,
+		...(solved.cookies ? { cookie: solved.cookies } : {}),
+		...(solved.userAgent ? { 'User-Agent': solved.userAgent } : {}),
+	};
+	const ajaxHeaders = { ...headers, 'x-requested-with': 'XMLHttpRequest' };
 
-		if (!found.videoUrl) {
-			ctx.log.warn('[nepu] No matching item found.');
-			return [];
-		}
-		ctx.log.info(`[nepu] Best match: "${found.name}" -> ${found.videoUrl}`);
-
-		// 2. Open the watch page and capture the HLS playlist from the player traffic.
-		const watchHref = new URL(found.videoUrl, base).href;
-		const m3u8Promise = page
-			.waitForResponse((r: any) => /\.m3u8(\?|$)/i.test(r.url()), { timeout: 25000 })
+	// 1. Search -> the watch/episode url.
+	let found: { name: string; videoUrl: string } | null = null;
+	for (const path of searchPaths) {
+		const data = await ctx.xhr
+			.fetchResponse<any>(new URL(path, base), { method: 'GET', clean: true, headers: ajaxHeaders }, requester)
 			.catch(() => null);
-
-		await page.goto(watchHref, { waitUntil: 'domcontentloaded' }).catch(() => null);
-		// Nudge the first embed to load its player (some skins require the click).
-		await page.evaluate(() => (document.querySelector('a[data-embed]') as HTMLElement | null)?.click()).catch(() => null);
-
-		const resp: any = await m3u8Promise;
-		if (!resp) {
-			ctx.log.warn('[nepu] No HLS playlist observed on the watch page.');
-			return [];
+		const items = (data?.data || []).filter((i: any) => i && i.type === wantType);
+		// `name` carries the year ("Breaking Bad (2008)"), `second_name` is the clean title.
+		const show = items.find((i: any) => want.includes(norm(i.name)) || want.includes(norm(i.second_name))) || items[0];
+		if (show) {
+			const videoUrl = seasonEp ? `${show.url}/season/${seasonEp.season}/episode/${seasonEp.episode}` : show.url;
+			found = { name: show.name, videoUrl };
+			break;
 		}
-		const playlist = resp.url();
-		const reqHeaders = (resp.request && resp.request().headers && resp.request().headers()) || {};
-		const embedReferer = reqHeaders.referer || referer;
-		const embedOrigin = reqHeaders.origin || new URL(playlist).origin;
-		ctx.log.info(`[nepu] Captured HLS: ${playlist}`);
-
-		return [
-			{
-				fileName: found.name ?? (media as any).title,
-				playlist,
-				language: 'en',
-				format: 'm3u8',
-				xhr: { flags: ['CORS_BLOCKED'], headers: { Origin: embedOrigin, Referer: embedReferer } },
-			} satisfies InternalMediaSource,
-		];
-	} catch (error) {
-		ctx.log.error(`[nepu] Browser flow failed: ${(error as Error).message}`);
-		return [];
-	} finally {
-		await session?.page.close().catch(() => null);
 	}
+	if (!found) {
+		ctx.log.warn('[nepu] No matching item found.');
+		return [];
+	}
+	ctx.log.info(`[nepu] Best match: "${found.name}" -> ${found.videoUrl}`);
+
+	// 2. Watch page -> the play button's `data-embed` id.
+	const watchUrl = new URL(found.videoUrl, base);
+	const watchHtml = await ctx.xhr
+		.fetch(watchUrl, { method: 'GET', attachUserAgent: true, clean: true, headers }, requester)
+		.then((r) => r.text())
+		.catch(() => '');
+	const embedId = ctx.cheerio.$load(watchHtml)('[data-embed]').first().attr('data-embed');
+	if (!embedId) {
+		ctx.log.warn('[nepu] No data-embed id on the watch page.');
+		return [];
+	}
+
+	// 3. Resolve the id -> a <script> carrying the manifest URLs.
+	const embedHtml = await ctx.xhr
+		.fetch(
+			new URL('/ajax/embed', base),
+			{
+				method: 'POST',
+				attachUserAgent: true,
+				clean: true,
+				// This endpoint rejects Impit's TLS fingerprint, so use native fetch here.
+				useImpit: false,
+				// It also 403s without the Origin/accept pair the page itself sends.
+				headers: {
+					...ajaxHeaders,
+					Referer: watchUrl.href,
+					Origin: base.origin,
+					accept: '*/*',
+					'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+				},
+				body: `id=${encodeURIComponent(embedId)}`,
+			},
+			requester,
+		)
+		.then((r) => r.text())
+		.catch(() => '');
+
+	// 4. Prefer the plain manifest: the opaque one's segments need the page's custom decoder.
+	const manifest =
+		embedHtml.match(/plainManifestUrl\s*=\s*"([^"]+)"/)?.[1] ?? embedHtml.match(/opaqueManifestUrl\s*=\s*"([^"]+)"/)?.[1];
+	if (!manifest) {
+		ctx.log.warn('[nepu] No manifest URL in the embed response.');
+		return [];
+	}
+	// The script escapes the query separators (&), so decode before building the URL.
+	const playlist = new URL(manifest.replace(/\\u0026/g, '&'), base).href;
+	ctx.log.info(`[nepu] Resolved HLS: ${playlist}`);
+
+	return [
+		{
+			fileName: found.name ?? (media as any).title,
+			playlist,
+			language: 'en',
+			format: 'm3u8',
+			xhr: { flags: ['CORS_BLOCKED', 'REFERER_LOCKED'], headers: { Origin: base.origin, Referer: watchUrl.href } },
+		} satisfies InternalMediaSource,
+	];
 }

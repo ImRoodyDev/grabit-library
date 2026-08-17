@@ -73,6 +73,11 @@ extract). Never jump to puppeteer before ruling out an app-level Referer/cookie/
   runs everywhere because the host can supply an RN WebView / FlareSolverr solver, so those providers
   stay `env: "universal"`. If you reach for puppeteer just to grab challenge HTML, prefer
   `ctx.solveChallenge` instead and keep the provider universal.
+  **"I need a network listener" is usually wrong** — first follow the id to its resolve endpoint
+  (Phase 1). Puppeteer is justified only when the value exists **nowhere in any response body**:
+  it is clicked into existence (cuevana reveals iframes on `.clili` click), read from browser-only
+  state (xpass reads the signed url from the `performance` resource timeline), or genuinely
+  network-only after you have followed every hop.
 - **Lazy sources** (item 8): return `{ ..., lazy:{ id } }` and export a
   `resolveLazy(id, ctx, requester)` worker; the host resolves the final URL on play. Full contract,
   self-contained-id rule, and server/client flow in the **writing-lazy-sources** skill.
@@ -81,11 +86,49 @@ extract). Never jump to puppeteer before ruling out an app-level Referer/cookie/
 
 ## WORKFLOW
 
-### Phase 1 — Recon (browser)
+### Phase 1 — Recon: map the WHOLE chain before you judge
 `navigate` the real embed/watch URL (fix the path if it 404s). `read_network_requests` to map the
 chain that ends in a `.m3u8`/`.mp4`; read the JSON bodies. **Locate where the stream URL lives**
 and whether the critical values (sig, id, source list) are **server-rendered into the HTML** (grep
 the embed HTML) or **computed by client JS**. Server-rendered ⇒ HTTP-first works without a browser.
+
+**Map every hop before deciding anything.** The chain is usually
+`search JSON -> item url -> page HTML -> an id/key -> POST a resolve endpoint -> the manifest`.
+Write the hops down, then ask per hop: is this value in a response body, or only computed in JS?
+
+**Never conclude "network-only" from one page.** A watch page that looks empty usually just means
+the source lives **one hop further** (the id's resolve endpoint), not that a browser is required.
+Before you claim a browser is needed, prove you followed the id to its endpoint and read that
+response. A short/near-empty HTML is a red flag that the request was **wrong** (missing cookies or
+headers), not that the data doesn't exist. Real example: nepu's watch page looked like an empty
+shell, but `a[data-embed]` -> `POST /ajax/embed` returns a `<script>` holding the HLS manifest, so
+the whole provider is HTTP-first with one challenge solve.
+
+**Use the browser as a teacher, not a crutch.** When a replayed request 403s, open the page once
+and *observe the real request* rather than guessing headers:
+```ts
+page.on('request', (r) => { if (/ajax\/(embed|hls)/.test(r.url()))
+  console.log(r.method(), r.url(), r.headers(), r.postData()); });
+await page.evaluate(() => document.querySelector('a[data-embed]')?.click());
+```
+Then copy that request **exactly** into `ctx.xhr` and delete the browser code.
+
+**Match the page's request precisely.** App endpoints reject on small mismatches. Copy `Origin`,
+`accept`, `x-requested-with`, and the full `content-type` (including `; charset=UTF-8`). Carry
+cookies across hops (`cookieJar`, or forward the solve's `cookies`), and send the solve's
+`userAgent`. Change ONE thing at a time until 403 flips to 200.
+
+**If a POST still 403s, try `useImpit: false`.** Impit's TLS fingerprint is great for Cloudflare
+edges but some app endpoints reject it; native fetch passes. (nepu's `/ajax/embed` needs exactly
+this: full cookies + `useImpit: false`.)
+
+**Pick the consumable variant.** When a page offers several URLs, choose the one an external
+player can use. e.g. prefer a `plainManifestUrl` over an `opaqueManifestUrl` whose segment URLs
+are decoded only by the page's custom JS loader.
+
+**Verify the API's real field names/values** instead of trusting a port: types and titles drift
+(nepu tags series `"Shows"`, not `"Serie"`, and the clean title is `second_name`, since `name`
+carries the year). Log one raw response and read it.
 
 ### Phase 2 — Resolve the stream, HTTP-FIRST (this is the core)
 Fetch the page with `ctx.xhr.fetch`, load it with `ctx.cheerio`, and **scan the HTML body** for
@@ -182,6 +225,9 @@ async function viaXhr(url, base, requester, ctx) {
 - All URLs from `entries`/`Provider` helpers (no hand-rolled `?s=`/`encodeURI(query)`).
 - HTTP-first: `ctx.xhr` + `ctx.cheerio` + engine unpackers + id-follow; `ctx.puppeteer` reached
   **only** behind a correct interstitial check (never on an app-403 or the JSD script).
+- Every hop of the chain mapped and followed; a browser is used only for a value that exists in
+  **no** response body, and that claim is backed by evidence (the response you actually read).
+- `manifest.json` `env` matches reality: `node` only for direct `ctx.puppeteer`, else `universal`.
 - `test-provider` returns real sources for movie **and** series (or logic complete + `active:false`
   + documented block). Bundles clean; `analysis/*.md` note written.
 
