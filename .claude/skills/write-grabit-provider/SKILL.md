@@ -1,11 +1,12 @@
 ---
 name: write-grabit-provider
 description: >-
-  Author or fix a grabit-library provider (scraper). HTTP-first — resolve with
-  ctx.xhr.fetch + ctx.cheerio, use the engine unpackers for packed <script> URLs, and
-  follow script ids/keys to their resolve endpoint; fall back to ctx.puppeteer (DOM
-  extract or network listener) ONLY for a real Cloudflare interstitial. Use whenever
-  adding/porting a provider, wiring an extractor, or diagnosing a 403 / "gated" site.
+  Author or fix a grabit-library provider (scraper). HTTP-first — map the whole request
+  chain, resolve with ctx.xhr.fetch + ctx.cheerio, use the engine unpackers for packed
+  <script> URLs, and follow ids/keys to their resolve endpoint; on a real Cloudflare gate
+  use ctx.solveChallenge (stays env universal) and reach for ctx.puppeteer ONLY when a live
+  page is unavoidable (env node). Use whenever adding/porting a provider, wiring an
+  extractor, or diagnosing a 403 / "gated" site.
 ---
 
 # Write a grabit-library provider
@@ -16,9 +17,11 @@ You are an **expert web-scraping engineer** for **grabit-library** (a provider l
 **`ctx.xhr.fetch` + `ctx.cheerio`** and **scan the HTML body** for where the source is — data in a
 `<script>` element (JSON/config, an id/key, a direct URL, or packed code) or a **player element
 with a `src`** (iframe/video/`source`/`data-src`). Extract it there (using the engine unpackers /
-id-follow). Only when the source isn't in the body — it's injected by client JS, or a real
-Cloudflare interstitial blocks you — fall back to **`ctx.puppeteer` + a network listener** (or DOM
-extract). Never jump to puppeteer before ruling out an app-level Referer/cookie/signed-URL 403.
+id-follow). If the value isn't on that page, it is almost always **one hop further**: follow the
+id/key to its resolve endpoint. On a real Cloudflare gate, use **`ctx.solveChallenge`** and redo the
+chain over `ctx.xhr` with the earned cookies (the provider stays `env: "universal"`). Reach for
+**`ctx.puppeteer`** (`env: "node"`) only when a live page is genuinely unavoidable. Never jump to a
+browser before ruling out an app-level Referer/cookie/Origin/signed-URL 403.
 
 ## USE THE TOOLS (don't work from memory)
 - **context7 MCP** — fetch current docs before using any `grabit-engine`/`cheerio`/
@@ -34,7 +37,8 @@ extract). Never jump to puppeteer before ruling out an app-level Referer/cookie/
 - Files: `config.ts` (`ProviderConfig` + `export const PROVIDER = Provider.create(config)`),
   `stream.ts` (`getStreams(requester, ctx): Promise<InternalMediaSource[]>`), `index.ts`
   (`defineProviderModule(PROVIDER, manifest.providers['<scheme>'], { getStreams })`). Add the
-  **`manifest.json`** entry (`dir`, `language`, `active`, `supportedMediaTypes`).
+  **`manifest.json`** entry (`dir`, `language`, `active`, `supportedMediaTypes`, and **`env`**:
+  `"node"` only if the provider calls `ctx.puppeteer`, otherwise `"universal"`).
 - **URLs come from the `entries` pattern — never hand-roll `new URL('/?s='+encodeURI(...))`.**
   Placeholders: `{title:form-uri}` (query, spaces→`+`), `{title:uri}` (path, spaces→`%20`),
   `{imdb:string}`/`{id:string}`, `{season:1}`/`{episode:1}` (zero-pad **digits** —
@@ -56,8 +60,10 @@ extract). Never jump to puppeteer before ruling out an app-level Referer/cookie/
   `xhr.headers`), `IP_LOCKED` (URL bound to the scraper IP), `GEO_BLOCKED`, `PROXY_ONLY`,
   `EXTERNAL`. e.g. a HubCloud/vcloud stream that needs a Referer → `flags: ['CORS_BLOCKED','REFERER_LOCKED']`.
 - **Engine HTTP options** on `ctx.xhr.fetch`: `cookieJar` (a `CookieJar` that carries cookies
-  across hops, no manual `createCookiesFromSet`), and `redirect` (`'manual'` to read a Location
-  header without following it). Per-host `maxHostConcurrency` (default 10), `honorRateLimit`, and
+  across hops, no manual `createCookiesFromSet`), `redirect` (`'manual'` to read a Location header
+  without following it, `'follow'` to land on the final URL via `res.url`), `cacheTTL`, and
+  `useImpit: false` (drop to native fetch when an endpoint rejects Impit's TLS fingerprint).
+  Per-host `maxHostConcurrency` (default 10), `honorRateLimit`, and
   `coalesce` are NOT fetch options anymore: they live in the provider `config.xhr` and default on,
   so set them there. Proxy is host-config on the manager/requester
   (`proxy: { agent, auth? } | { resolver, headers? }`), never a provider fetch option.
@@ -163,17 +169,32 @@ where the source/player is — a `<script>` element holding data, or a **player 
    **Examples:** `nepu` (`data-embed` → `POST /ajax/embed`), `primesrc` (`key` → `/api/v1/l`),
    `xpass2` (`var dataUrl` → signed `/data/…` → `playlist.json`).
 
-4. **The source isn't in the body** (injected by client JS) **or a genuine CF interstitial blocks
-   you** (see Phase 3) → **fall back to `ctx.puppeteer`**, preferring a **network listener**:
-   - **Network listener (preferred)** — `const p = page.waitForResponse(r => /\.m3u8(\?|$)|\.mp4/i.test(r.url()), {timeout: 25000})`,
+4. **A genuine CF interstitial blocks you** (see Phase 3) → **`ctx.solveChallenge`**, then redo the
+   same chain over `ctx.xhr` with the earned cookies. Keeps the provider `env: "universal"`.
+   ```ts
+   const solved = await ctx.solveChallenge(url, requester, { waitForCookie: 'cf_clearance' });
+   const headers = {
+     Referer: base.origin + '/',
+     ...(solved.cookies ? { cookie: solved.cookies } : {}),
+     ...(solved.userAgent ? { 'User-Agent': solved.userAgent } : {}),
+   };
+   // then parse solved.html and follow ids with ctx.xhr using `headers`
+   ```
+   **Examples:** `xpass2`, `primesrc`, `primewire`, `1cinevood`, and the `hubcloud`/`gdflix` extractors.
+
+5. **The value exists in NO response body** (clicked into existence, browser-only state, or truly
+   network-only after you followed every hop) → **`ctx.puppeteer`**, and set `env: "node"`:
+   - **Network listener** — `const p = page.waitForResponse(r => /\.m3u8(\?|$)|\.mp4/i.test(r.url()), {timeout: 25000})`,
      let the player load, then take `p.url()` + `p.request().headers()` (Referer/Origin for playback).
-   - **DOM / `page.evaluate` extract** — when there's no clear media request: read the rendered DOM
-     or re-run the fetch chain in-page (cookies + Referer set automatically).
+   - **DOM / `page.evaluate` extract** — read the rendered DOM, or click to reveal what only a click
+     materialises.
    Always `await session?.page.close()` in `finally`.
+   **Only two providers qualify today:** `cuevana` (iframes appear on `.clili` click), `xpass`
+   (signed url read from the `performance` resource timeline).
 
 ### Phase 3 — A 403/challenge is NOT automatically Cloudflare. DIAGNOSE.
 - **Real CF interstitial** — a full HTML page whose `<title>` is `Just a moment…`, or contains
-  `__cf_chl`, `cf_chl_opt`, `cf-browser-verification`. → genuine gate → Phase 2 step 4 fallback.
+  `__cf_chl`, `cf_chl_opt`, `cf-browser-verification`. → genuine gate → Phase 2 step 4 (solve).
   - ⚠️ The benign `/cdn-cgi/challenge-platform/.../jsd/...` script is injected into **normal**
     pages too — **do not** treat its presence as a gate (it false-positives and forces a needless
     browser fallback). Match only the interstitial markers above.
@@ -190,6 +211,10 @@ where the source/player is — a `<script>` element holding data, or a **player 
 ### Phase 4 — Validate & finalize
 - `test-provider` for **movie AND series**; confirm real playable URLs (pass `--title/--year/--imdb`
   to dodge TMDB rate-limit 401s). `bundle-provider` (all) to confirm nothing else broke.
+- Series often breaks where movie passes (different type tag / title field), so never ship on a
+  movie-only pass.
+- Update `manifest.json` to match the result: `env` (`node` only if `ctx.puppeteer` remains) and
+  `active: true` once it returns real sources.
 - If even a **solved browser** still 403s a critical endpoint (per-endpoint managed challenge /
   Turnstile), implement the logic correctly, set the manifest entry `active:false`, and document
   the blocker **with evidence** (status + body + which header flipped it).
@@ -206,8 +231,19 @@ export async function getStreams(requester, ctx) {
   const url = PROVIDER.createResourceURL(requester);        // from entries
   const http = await viaXhr(url, base, requester, ctx);     // { sources?, cfBlocked }
   if (http.sources && !http.cfBlocked) return http.sources; // may be [] if genuinely nothing
-  ctx.log.info('[scheme] CF interstitial — puppeteer fallback.');
-  return viaPuppeteer(url, requester, ctx);                 // DOM extract OR network listener
+  // CF gate: solve once, then redo the same chain over ctx.xhr. Stays env universal.
+  ctx.log.info('[scheme] CF gate, solving the challenge.');
+  return viaSolve(url, base, requester, ctx);
+}
+async function viaSolve(url, base, requester, ctx) {
+  const solved = await ctx.solveChallenge(url, requester, { waitForCookie: 'cf_clearance' });
+  const headers = {
+    Referer: base.origin + '/',
+    ...(solved.cookies ? { cookie: solved.cookies } : {}),
+    ...(solved.userAgent ? { 'User-Agent': solved.userAgent } : {}),
+  };
+  // Same extraction as viaXhr, now authenticated: parse solved.html, follow ids via ctx.xhr.
+  return [];
 }
 async function viaXhr(url, base, requester, ctx) {
   const res = await ctx.xhr.fetch(url, { method:'GET', attachUserAgent:true, clean:true, headers:{ Referer: base.origin + '/' } }, requester);
@@ -232,8 +268,13 @@ async function viaXhr(url, base, requester, ctx) {
   + documented block). Bundles clean; `analysis/*.md` note written.
 
 ## Reference implementations in this repo
+- **Full chain, canonical**: `providers/media/en/nepu` — solve once, then search JSON ->
+  `data-embed` id -> `POST /ajax/embed` -> manifest, all over `ctx.xhr` (needs `Origin` + `accept`
+  + `useImpit:false`).
 - Unpacker: `providers/extractors/mixdrop.ts` · Embed dispatch: `providers/extractors/embedDispatch.ts`
-- id/key-follow: `providers/media/en/nepu`, `providers/media/en/primesrc`
-- HTTP-first + CF fallback: `providers/media/en/xpass2` (vs browser-only `xpass`)
+- id/key-follow: `providers/media/en/{nepu,primesrc}`
+- HTTP-first then solve: `providers/media/en/xpass2`, and `providers/extractors/{hubcloud,gdflix}.ts`
 - Cookies/headers dance: `providers/media/en/primewire`
 - Entries pattern + link chain: `providers/media/multi/{vega,4khdhub,hdhub4u}`, `providers/extractors/{hubcloud,hubchain,postMatch}.ts`
+- **Justified `ctx.puppeteer` (env node)**: `providers/media/es/cuevana` (click to reveal),
+  `providers/media/en/xpass` (performance resource timeline).
