@@ -30,3 +30,9 @@ export const locators: TProviderSelectors = {
 } as const;
 
 export const PROVIDER = Provider.create(config);
+
+const API_KEYS = process.env.WYZIE_SUBS_KEYS?.split(',') ?? [''];
+
+export function getKey(): string {
+	return (API_KEYS[Math.floor(Math.random() * API_KEYS.length)] || API_KEYS[0]) as string;
+}

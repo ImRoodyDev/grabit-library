@@ -5,9 +5,7 @@ import {
 	deduplicateArray,
 	secondsToMilliseconds,
 } from 'grabit-engine';
-import { PROVIDER } from './config';
-
-const KEY = 'wyzie-6cc153c9149470f286ca7a2cb1334b39';
+import { getKey, PROVIDER } from './config';
 
 /**
  * Subtitle handler for Wyziesubs.
@@ -44,7 +42,7 @@ export async function getSubtitles(
 			const newUrl = new URL(url.href);
 			newUrl.searchParams.set('source', source);
 			// Add the API key as a query parameter
-			newUrl.searchParams.set('key', KEY);
+			newUrl.searchParams.set('key', getKey());
 			return newUrl;
 		}),
 	);
