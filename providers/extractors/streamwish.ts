@@ -46,7 +46,6 @@ export async function extractStreamwishStreams(
 			'sec-fetch-mode': 'navigate',
 			'sec-fetch-site': 'cross-site',
 			'upgrade-insecure-requests': '1',
-			cookie: undefined as any,
 		},
 	};
 

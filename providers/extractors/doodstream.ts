@@ -62,7 +62,6 @@ export async function extractDoodstreamStreams(
 			'sec-fetch-storage-access': 'active',
 			'sec-fetch-user': '?1',
 			'upgrade-insecure-requests': '1',
-			cookie: undefined as any, // Ensure cookies are not sent with the request
 			referer: requestOpts.extraHeaders?.referer ?? embedURL.origin, // Ensure referer is set for the initial page load
 		},
 	};

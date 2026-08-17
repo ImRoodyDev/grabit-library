@@ -119,7 +119,7 @@ export async function extractGdflixStreams(
 		if (seed && !seed.includes('?url=')) {
 			const res = await ctx.xhr.fetch(
 				new URL(seed, baseUrl),
-				{ method: 'HEAD', attachUserAgent: true, clean: true, headers: { 'User-Agent': GDFLIX_UA }, redirect: 'manual' as any },
+				{ method: 'HEAD', attachUserAgent: true, clean: true, headers: { 'User-Agent': GDFLIX_UA }, redirect: 'manual' },
 				requester,
 			);
 			const loc = res.headers.get('location') || (res.url && res.url !== seed ? res.url : '');

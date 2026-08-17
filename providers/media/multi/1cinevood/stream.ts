@@ -378,7 +378,7 @@ async function resolveCinevoodLink(
 			const apiUrl = new URL(`/api/s/${id}/hubcloud`, u.origin);
 			const res = await ctx.xhr.fetch(
 				apiUrl,
-				{ method: 'GET', attachUserAgent: true, clean: true, headers: { ...HEADERS }, redirect: 'follow' } as any,
+				{ method: 'GET', attachUserAgent: true, clean: true, headers: { ...HEADERS }, redirect: 'follow' },
 				requester,
 			);
 			if (res.url && /hubcloud/i.test(res.url)) return res.url;

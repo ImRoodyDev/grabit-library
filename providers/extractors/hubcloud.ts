@@ -173,7 +173,7 @@ async function handleSearchRecover(
 	try {
 		const probe = await ctx.xhr.fetch(
 			recoverURL,
-			{ method: 'GET', attachUserAgent: true, clean: true, headers: { ...headers }, redirect: 'follow' as any },
+			{ method: 'GET', attachUserAgent: true, clean: true, headers: { ...headers }, redirect: 'follow' },
 			requester,
 		);
 		if (probe.url && /search-recover\.php/i.test(probe.url)) resolvedURL = new URL(probe.url);
@@ -324,7 +324,7 @@ async function resolveNestedHubcloud(
 		const headHeaders = { ...headers, ...(cookieJar.cookie ? { cookie: cookieJar.cookie } : {}) };
 		const first = await ctx.xhr.fetch(
 			new URL(href),
-			{ method: 'HEAD', attachUserAgent: true, clean: true, headers: headHeaders, redirect: 'manual' as any },
+			{ method: 'HEAD', attachUserAgent: true, clean: true, headers: headHeaders, redirect: 'manual' },
 			requester,
 		);
 		let newLink = first.headers.get('location') || (first.url && first.url !== href ? first.url : href);
@@ -335,7 +335,7 @@ async function resolveNestedHubcloud(
 
 		const second = await ctx.xhr.fetch(
 			new URL(newLink),
-			{ method: 'HEAD', attachUserAgent: true, clean: true, headers: headHeaders, redirect: 'manual' as any },
+			{ method: 'HEAD', attachUserAgent: true, clean: true, headers: headHeaders, redirect: 'manual' },
 			requester,
 		);
 		const secondLoc = second.headers.get('location');

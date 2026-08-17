@@ -40,7 +40,6 @@ export async function extractMixdropStream(
 		'sec-fetch-storage-access': 'active',
 		'sec-fetch-user': '?1',
 		'upgrade-insecure-requests': '1',
-		cookie: undefined as any, // Ensure cookies are not sent with the request
 	};
 
 	const iframeOpts: CheerioLoadRequest = {

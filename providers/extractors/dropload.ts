@@ -29,7 +29,6 @@ export async function extractDroploadStreams(
 			'sec-fetch-site': 'cross-site',
 			'sec-fetch-storage-access': 'active',
 			'upgrade-insecure-requests': '1',
-			cookie: undefined as any, // Ensure cookies are not sent with the request
 		},
 	};
 	const page = await ctx.cheerio.load(resourceURL, opts, ctx.xhr);

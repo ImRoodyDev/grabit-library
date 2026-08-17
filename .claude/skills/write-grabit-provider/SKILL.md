@@ -55,19 +55,21 @@ extract). Never jump to puppeteer before ruling out an app-level Referer/cookie/
   `CORS_BLOCKED` (direct fetch blocked → needs proxy), `REFERER_LOCKED` (needs the Referer in
   `xhr.headers`), `IP_LOCKED` (URL bound to the scraper IP), `GEO_BLOCKED`, `PROXY_ONLY`,
   `EXTERNAL`. e.g. a HubCloud/vcloud stream that needs a Referer → `flags: ['CORS_BLOCKED','REFERER_LOCKED']`.
-- **Engine HTTP options** (opt-in on `ctx.xhr.fetch`, for multi-hop/heavy sites): `cookieJar`
-  (a `CookieJar` that carries cookies across hops — no manual `createCookiesFromSet`).
-  `maxHostConcurrency` (default 10), `honorRateLimit` and `coalesce` are **on by default from
-  `config.xhr`** — set them there to override, not per fetch. Proxy is host-config on the
-  manager/requester (`proxy: { agent, auth? } | { resolver, headers? }`), never a provider fetch option.
+- **Engine HTTP options** on `ctx.xhr.fetch`: `cookieJar` (a `CookieJar` that carries cookies
+  across hops, no manual `createCookiesFromSet`), and `redirect` (`'manual'` to read a Location
+  header without following it). Per-host `maxHostConcurrency` (default 10), `honorRateLimit`, and
+  `coalesce` are NOT fetch options anymore: they live in the provider `config.xhr` and default on,
+  so set them there. Proxy is host-config on the manager/requester
+  (`proxy: { agent, auth? } | { resolver, headers? }`), never a provider fetch option.
 - **CF-solving**: `ctx.solveChallenge(url, requester, { waitForCookie:'cf_clearance' })` →
   `{ html, cookies, cookieMap, userAgent }` (puppeteer on Node; the host injects an RN
   hidden-WebView / FlareSolverr solver via `setChallengeSolver`). Feed the cookies into a
   `CookieJar` for the next hops. Raw `ctx.puppeteer` is still there for network-listener flows.
 - **Lazy sources** (item 8): return `{ ..., lazy:{ id } }` and export a
-  `resolveLazy(id, ctx, requester)` worker; the host resolves the final URL on play.
-- **Comments**: short and simple — **max 2 lines**, only where intent isn't obvious. No verbose
-  blocks or heavy JSDoc.
+  `resolveLazy(id, ctx, requester)` worker; the host resolves the final URL on play. Full contract,
+  self-contained-id rule, and server/client flow in the **writing-lazy-sources** skill.
+- **Comments**: short and simple, **max 2 lines**, only where intent isn't obvious. No verbose
+  blocks or heavy JSDoc, and no long dashes (em dashes) or divider lines inside code comments.
 
 ## WORKFLOW
 
