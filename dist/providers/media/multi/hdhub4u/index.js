@@ -13319,6 +13319,50 @@ var manifest_default = {
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/es"
+    },
+    iptvorg: {
+      name: "IPTV-org",
+      version: "1.0.0",
+      active: true,
+      language: "*",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["channel"],
+      priority: 100,
+      dir: "providers/live"
+    },
+    publiciptv: {
+      name: "Public IPTV",
+      version: "1.0.0",
+      active: true,
+      language: "*",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["channel"],
+      priority: 100,
+      dir: "providers/live"
+    },
+    supercambr: {
+      name: "SupercamBR",
+      version: "1.0.0",
+      active: true,
+      language: "*",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["channel"],
+      priority: 100,
+      dir: "providers/live"
+    },
+    streamsports: {
+      name: "StreamSports99",
+      version: "1.0.0",
+      active: false,
+      language: "*",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["channel"],
+      priority: 100,
+      dir: "providers/live"
     }
   }
 };

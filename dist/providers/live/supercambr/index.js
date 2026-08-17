@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AUTO-GENERATED — Do not edit manually                      ║
-// ║  Provider: wyziesubs                                       ║
+// ║  Provider: supercambr                                      ║
 // ║  Bundled with esbuild — npx bundle-provider                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -12144,7 +12144,7 @@ var require_cjs = __commonJS({
   }
 });
 
-// providers/subtitle/wyziesubs/index.ts
+// providers/live/supercambr/index.ts
 var index_exports = {};
 __export(index_exports, {
   default: () => index_default
@@ -12351,7 +12351,6 @@ var DebugLogger = /*#__PURE__*/function () {
 var _Logger = new DebugLogger((process.env?.NODE_ENV ?? process.env?.ENV) !== "production", "GRABIT-ENGINE");
 
 // node_modules/grabit-engine/dist/esm/src/utils/standard.js
-var secondsToMilliseconds = seconds => seconds * 1e3;
 function normalizeHeaders(headers) {
   const seen = /* @__PURE__ */new Map();
   const result = {};
@@ -12985,6 +12984,55 @@ function parse(str = "", format = "ms") {
   return result && result / (parse.unit[format] || 1) * (str[0] === "-" ? -1 : 1);
 }
 
+// node_modules/grabit-engine/dist/esm/src/utils/similarity.js
+function calculateMatchScore(criteria, media) {
+  let score = 0;
+  if (media.type == "channel") return cosineSimilarity(media.channelName, criteria.title || "") * 100;
+  if (media.title && criteria.title) {
+    const queryVector = buildVector(criteria.title);
+    const distance = cosineSimilarityVectors(buildVector(media.title), queryVector);
+    const distances = media.localizedTitles.map(t => cosineSimilarityVectors(buildVector(t), queryVector));
+    score += Math.max(distance, ...distances) * 100;
+  }
+  if (media.releaseYear && criteria.year && media.releaseYear.toString() === criteria.year) {
+    score += 50;
+  }
+  if (media.duration && criteria.duration) {
+    const parsed = (parse(criteria.duration) ?? 0) / 6e4;
+    const diff = Math.abs(media.duration - parsed);
+    score += 20 - Math.min(diff, 20);
+  }
+  return score;
+}
+function cosineSimilarity(a, b) {
+  return cosineSimilarityVectors(buildVector(a), buildVector(b));
+}
+function cosineSimilarityVectors(vecA, vecB) {
+  const allWords = /* @__PURE__ */new Set([...vecA.keys(), ...vecB.keys()]);
+  let dotProduct = 0;
+  let magnitudeA = 0;
+  let magnitudeB = 0;
+  for (const word of allWords) {
+    const valA = vecA.get(word) || 0;
+    const valB = vecB.get(word) || 0;
+    dotProduct += valA * valB;
+    magnitudeA += valA * valA;
+    magnitudeB += valB * valB;
+  }
+  magnitudeA = Math.sqrt(magnitudeA);
+  magnitudeB = Math.sqrt(magnitudeB);
+  if (magnitudeA === 0 || magnitudeB === 0) return 0;
+  return dotProduct / (magnitudeA * magnitudeB);
+}
+function buildVector(text) {
+  const words = text.toLowerCase().split(/\W+/).filter(Boolean);
+  const freq = /* @__PURE__ */new Map();
+  for (const word of words) {
+    freq.set(word, (freq.get(word) || 0) + 1);
+  }
+  return freq;
+}
+
 // provider-shim:grabit-engine-provider-crypto-shim
 var runtimeRequire = typeof require === "function" ? require : void 0;
 var globalCryptoCandidates = [globalThis.__grabitCrypto, globalThis.Crypto, globalThis.crypto];
@@ -13314,79 +13362,92 @@ var manifest_default = {
   }
 };
 
-// providers/subtitle/wyziesubs/config.ts
+// providers/live/supercambr/config.ts
 var config = {
-  scheme: "wyziesubs",
-  name: "Wyziesubs",
+  scheme: "supercambr",
+  name: "SupercamBR",
   language: "*",
-  baseUrl: "https://sub.wyzie.ru",
+  baseUrl: "http://listas.supercambr.com.br/scambr/",
   entries: {
-    movie: {
-      endpoint: "/search?id={id:string}&format=srt"
-    },
-    serie: {
-      endpoint: "/search?id={id:string}&season={season:1}&episode={episode:1}&format=srt"
+    channel: {
+      endpoint: "/infopageandroid.php"
     }
-  },
-  mediaIds: ["imdb", "tmdb"],
-  contentAreCORSProtected: true
+  }
 };
 var PROVIDER = Provider.create(config);
-var API_KEYS = process.env.WYZIE_SUBS_KEYS?.split(",") ?? [""];
-function getKey() {
-  return API_KEYS[Math.floor(Math.random() * API_KEYS.length)] || API_KEYS[0];
-}
 
-// providers/subtitle/wyziesubs/subtitle.ts
-function getSubtitles(_x12, _x13) {
-  return _getSubtitles.apply(this, arguments);
-} // providers/subtitle/wyziesubs/index.ts
-function _getSubtitles() {
-  _getSubtitles = _asyncToGenerator(function* (requester, ctx) {
-    if (requester.media.type === "channel") return [];
-    const subSources = ["subdl", "subf2m", "opensubtitles", "podnapisi", "animetosho", "gestdown"];
-    let urls = deduplicateArray([PROVIDER.createResourceURL(requester), new URL(PROVIDER.createPatternString(requester.media.type === "movie" ? "/search?id={tmdb:string}&format=srt" : "/search?id={tmdb:string}&season={season:1}&episode={episode:1}&format=srt", requester.media), PROVIDER.config.baseUrl)]);
-    urls = urls.flatMap(url => subSources.map(source => {
-      const newUrl = new URL(url.href);
-      newUrl.searchParams.set("source", source);
-      newUrl.searchParams.set("key", getKey());
-      return newUrl;
-    }));
-    const subtitleResults = [];
-    for (const [i, url] of urls.entries()) {
-      ctx.log.info(`Attempting to fetch subtitles from URL ${i + 1}/${urls.length}: ${url.href}`);
-      try {
-        const subtitles = yield ctx.xhr.fetchResponse(url, {
-          method: "GET",
-          attachUserAgent: true,
-          timeout: secondsToMilliseconds(3)
-        }, requester);
-        if (subtitles && subtitles.length > 0) {
-          ctx.log.info(`Successfully fetched ${subtitles.length} subtitles from URL ${url.href}`);
-          subtitleResults.push(...subtitles);
-        } else {
-          ctx.log.warn(`No subtitles found at URL ${url.href}`);
-        }
-        if (subtitleResults.length > 0) break;
-      } catch (error) {
-        ctx.log.error(`Failed to fetch subtitles from URL ${url.href}: ${error.message}`);
-        continue;
+// providers/live/supercambr/stream.ts
+var norm = s => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+function formatOf(url) {
+  if (/\.mpd(\?|$)/i.test(url)) return "dash";
+  if (/\.(mp4|ts)(\?|$)/i.test(url)) return "mp4";
+  return "m3u8";
+}
+function getStreams(_x12, _x13) {
+  return _getStreams.apply(this, arguments);
+} // providers/live/supercambr/index.ts
+function _getStreams() {
+  _getStreams = _asyncToGenerator(function* (requester, ctx) {
+    if (requester.media.type !== "channel") return [];
+    const media = requester.media;
+    const base = new URL(PROVIDER.config.baseUrl);
+    const menuUrl = new URL("infopageandroid.php", base);
+    const menuHtml = yield ctx.xhr.fetch(menuUrl, {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      cacheTTL: 108e5
+    }, requester).then(r => r.text()).catch(() => "");
+    const listPaths = [...new Set(menuHtml.match(/getlistweb\.php\?l=[^'"]+/g) ?? [])].filter(p => !/iptv-org\.github\.io/.test(p));
+    if (!listPaths.length) {
+      ctx.log.warn("[supercambr] No lists found in the menu.");
+      return [];
+    }
+    const wantName = media.channelName ?? "";
+    const wantNorm = norm(wantName || media.channelId || "");
+    const rowRe = /color=greenyellow>\s*(?:\d+\.)?([^<]+)<\/font>[\s\S]*?videojs\.php\?url=([^'"\s]+)/g;
+    const seen = /* @__PURE__ */new Set();
+    const out = [];
+    for (const path of listPaths) {
+      if (out.length >= 12) break;
+      const listUrl = new URL("./" + path, base);
+      const html = yield ctx.xhr.fetch(listUrl, {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        cacheTTL: 108e5
+      }, requester).then(r => r.text()).catch(() => "");
+      if (!html) continue;
+      let m2;
+      rowRe.lastIndex = 0;
+      while ((m2 = rowRe.exec(html)) !== null) {
+        const name = (m2[1] ?? "").trim();
+        const streamUrl = (m2[2] ?? "").trim();
+        if (!name || !streamUrl || seen.has(streamUrl)) continue;
+        const nName = norm(name);
+        const hit = nName === wantNorm || nName.includes(wantNorm) || calculateMatchScore({
+          title: name
+        }, media) >= 80;
+        if (!hit) continue;
+        seen.add(streamUrl);
+        out.push({
+          fileName: name,
+          playlist: streamUrl,
+          language: "pt",
+          format: formatOf(streamUrl),
+          xhr: {
+            flags: ["CORS_BLOCKED"],
+            headers: {}
+          }
+        });
+        if (out.length >= 12) break;
       }
     }
-    return subtitleResults.map(subtitle => ({
-      fileName: subtitle.fileName,
-      url: subtitle.url,
-      language: subtitle.language,
-      format: subtitle.format,
-      languageName: subtitle.display,
-      xhr: {
-        flags: ["CORS_BLOCKED"],
-        headers: {}
-      }
-    }));
+    ctx.log.info(`[supercambr] Resolved ${out.length} stream(s) for "${media.channelName}".`);
+    return out;
   });
-  return _getSubtitles.apply(this, arguments);
+  return _getStreams.apply(this, arguments);
 }
-var index_default = defineProviderModule(PROVIDER, manifest_default.providers["wyziesubs"], {
-  getSubtitles
+var index_default = defineProviderModule(PROVIDER, manifest_default.providers["supercambr"], {
+  getStreams
 });

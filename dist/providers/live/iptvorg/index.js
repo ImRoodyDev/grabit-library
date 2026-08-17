@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AUTO-GENERATED — Do not edit manually                      ║
-// ║  Provider: wyziesubs                                       ║
+// ║  Provider: iptvorg                                         ║
 // ║  Bundled with esbuild — npx bundle-provider                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -12144,7 +12144,7 @@ var require_cjs = __commonJS({
   }
 });
 
-// providers/subtitle/wyziesubs/index.ts
+// providers/live/iptvorg/index.ts
 var index_exports = {};
 __export(index_exports, {
   default: () => index_default
@@ -12351,7 +12351,6 @@ var DebugLogger = /*#__PURE__*/function () {
 var _Logger = new DebugLogger((process.env?.NODE_ENV ?? process.env?.ENV) !== "production", "GRABIT-ENGINE");
 
 // node_modules/grabit-engine/dist/esm/src/utils/standard.js
-var secondsToMilliseconds = seconds => seconds * 1e3;
 function normalizeHeaders(headers) {
   const seen = /* @__PURE__ */new Map();
   const result = {};
@@ -12985,6 +12984,55 @@ function parse(str = "", format = "ms") {
   return result && result / (parse.unit[format] || 1) * (str[0] === "-" ? -1 : 1);
 }
 
+// node_modules/grabit-engine/dist/esm/src/utils/similarity.js
+function calculateMatchScore(criteria, media) {
+  let score = 0;
+  if (media.type == "channel") return cosineSimilarity(media.channelName, criteria.title || "") * 100;
+  if (media.title && criteria.title) {
+    const queryVector = buildVector(criteria.title);
+    const distance = cosineSimilarityVectors(buildVector(media.title), queryVector);
+    const distances = media.localizedTitles.map(t => cosineSimilarityVectors(buildVector(t), queryVector));
+    score += Math.max(distance, ...distances) * 100;
+  }
+  if (media.releaseYear && criteria.year && media.releaseYear.toString() === criteria.year) {
+    score += 50;
+  }
+  if (media.duration && criteria.duration) {
+    const parsed = (parse(criteria.duration) ?? 0) / 6e4;
+    const diff = Math.abs(media.duration - parsed);
+    score += 20 - Math.min(diff, 20);
+  }
+  return score;
+}
+function cosineSimilarity(a, b) {
+  return cosineSimilarityVectors(buildVector(a), buildVector(b));
+}
+function cosineSimilarityVectors(vecA, vecB) {
+  const allWords = /* @__PURE__ */new Set([...vecA.keys(), ...vecB.keys()]);
+  let dotProduct = 0;
+  let magnitudeA = 0;
+  let magnitudeB = 0;
+  for (const word of allWords) {
+    const valA = vecA.get(word) || 0;
+    const valB = vecB.get(word) || 0;
+    dotProduct += valA * valB;
+    magnitudeA += valA * valA;
+    magnitudeB += valB * valB;
+  }
+  magnitudeA = Math.sqrt(magnitudeA);
+  magnitudeB = Math.sqrt(magnitudeB);
+  if (magnitudeA === 0 || magnitudeB === 0) return 0;
+  return dotProduct / (magnitudeA * magnitudeB);
+}
+function buildVector(text) {
+  const words = text.toLowerCase().split(/\W+/).filter(Boolean);
+  const freq = /* @__PURE__ */new Map();
+  for (const word of words) {
+    freq.set(word, (freq.get(word) || 0) + 1);
+  }
+  return freq;
+}
+
 // provider-shim:grabit-engine-provider-crypto-shim
 var runtimeRequire = typeof require === "function" ? require : void 0;
 var globalCryptoCandidates = [globalThis.__grabitCrypto, globalThis.Crypto, globalThis.crypto];
@@ -13314,79 +13362,95 @@ var manifest_default = {
   }
 };
 
-// providers/subtitle/wyziesubs/config.ts
+// providers/live/iptvorg/config.ts
 var config = {
-  scheme: "wyziesubs",
-  name: "Wyziesubs",
+  scheme: "iptvorg",
+  name: "IPTV-org",
   language: "*",
-  baseUrl: "https://sub.wyzie.ru",
+  baseUrl: "https://iptv-org.github.io/",
   entries: {
-    movie: {
-      endpoint: "/search?id={id:string}&format=srt"
-    },
-    serie: {
-      endpoint: "/search?id={id:string}&season={season:1}&episode={episode:1}&format=srt"
+    channel: {
+      endpoint: "/api/streams.json"
     }
-  },
-  mediaIds: ["imdb", "tmdb"],
-  contentAreCORSProtected: true
+  }
 };
 var PROVIDER = Provider.create(config);
-var API_KEYS = process.env.WYZIE_SUBS_KEYS?.split(",") ?? [""];
-function getKey() {
-  return API_KEYS[Math.floor(Math.random() * API_KEYS.length)] || API_KEYS[0];
-}
 
-// providers/subtitle/wyziesubs/subtitle.ts
-function getSubtitles(_x12, _x13) {
-  return _getSubtitles.apply(this, arguments);
-} // providers/subtitle/wyziesubs/index.ts
-function _getSubtitles() {
-  _getSubtitles = _asyncToGenerator(function* (requester, ctx) {
-    if (requester.media.type === "channel") return [];
-    const subSources = ["subdl", "subf2m", "opensubtitles", "podnapisi", "animetosho", "gestdown"];
-    let urls = deduplicateArray([PROVIDER.createResourceURL(requester), new URL(PROVIDER.createPatternString(requester.media.type === "movie" ? "/search?id={tmdb:string}&format=srt" : "/search?id={tmdb:string}&season={season:1}&episode={episode:1}&format=srt", requester.media), PROVIDER.config.baseUrl)]);
-    urls = urls.flatMap(url => subSources.map(source => {
-      const newUrl = new URL(url.href);
-      newUrl.searchParams.set("source", source);
-      newUrl.searchParams.set("key", getKey());
-      return newUrl;
-    }));
-    const subtitleResults = [];
-    for (const [i, url] of urls.entries()) {
-      ctx.log.info(`Attempting to fetch subtitles from URL ${i + 1}/${urls.length}: ${url.href}`);
-      try {
-        const subtitles = yield ctx.xhr.fetchResponse(url, {
-          method: "GET",
-          attachUserAgent: true,
-          timeout: secondsToMilliseconds(3)
-        }, requester);
-        if (subtitles && subtitles.length > 0) {
-          ctx.log.info(`Successfully fetched ${subtitles.length} subtitles from URL ${url.href}`);
-          subtitleResults.push(...subtitles);
-        } else {
-          ctx.log.warn(`No subtitles found at URL ${url.href}`);
-        }
-        if (subtitleResults.length > 0) break;
-      } catch (error) {
-        ctx.log.error(`Failed to fetch subtitles from URL ${url.href}: ${error.message}`);
-        continue;
-      }
-    }
-    return subtitleResults.map(subtitle => ({
-      fileName: subtitle.fileName,
-      url: subtitle.url,
-      language: subtitle.language,
-      format: subtitle.format,
-      languageName: subtitle.display,
-      xhr: {
-        flags: ["CORS_BLOCKED"],
-        headers: {}
-      }
-    }));
-  });
-  return _getSubtitles.apply(this, arguments);
+// providers/live/iptvorg/stream.ts
+var norm = s => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+function formatOf(url) {
+  if (/\.mpd(\?|$)/i.test(url)) return "dash";
+  if (/\.mp4(\?|$)/i.test(url)) return "mp4";
+  return "m3u8";
 }
-var index_default = defineProviderModule(PROVIDER, manifest_default.providers["wyziesubs"], {
-  getSubtitles
+function getStreams(_x12, _x13) {
+  return _getStreams.apply(this, arguments);
+} // providers/live/iptvorg/index.ts
+function _getStreams() {
+  _getStreams = _asyncToGenerator(function* (requester, ctx) {
+    if (requester.media.type !== "channel") return [];
+    const media = requester.media;
+    const url = PROVIDER.createResourceURL(requester);
+    const text = yield ctx.xhr.fetch(url, {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      cacheTTL: 216e5
+    }, requester).then(r => r.text()).catch(() => "");
+    let streams = [];
+    try {
+      streams = JSON.parse(text);
+    } catch {
+      ctx.log.warn("[iptvorg] Failed to fetch/parse the streams catalog.");
+      return [];
+    }
+    const wantId = norm(media.channelId ?? "");
+    const wantName = media.channelName ?? "";
+    let matches = wantId ? streams.filter(s => s.channel && norm(s.channel) === wantId) : [];
+    if (!matches.length && wantName) {
+      const wantNorm = norm(wantName);
+      matches = streams.filter(s => {
+        if (!s.title) return false;
+        if (norm(s.title) === wantNorm) return true;
+        return calculateMatchScore({
+          title: s.title
+        }, media) >= 80;
+      });
+    }
+    if (!matches.length) {
+      ctx.log.warn(`[iptvorg] No stream for channel "${media.channelName}" (${media.channelId}).`);
+      return [];
+    }
+    const seen = /* @__PURE__ */new Set();
+    const out = [];
+    for (const s of matches) {
+      if (!s.url || seen.has(s.url)) continue;
+      seen.add(s.url);
+      const flags = ["CORS_BLOCKED"];
+      const headers = {};
+      if (s.referrer) {
+        headers.Referer = s.referrer;
+        flags.push("REFERER_LOCKED");
+      }
+      if (s.user_agent) headers["User-Agent"] = s.user_agent;
+      const label = [s.title, s.feed, s.quality].filter(Boolean).join(" ");
+      out.push({
+        fileName: label || s.title,
+        playlist: s.url,
+        language: "en",
+        format: formatOf(s.url),
+        xhr: {
+          flags,
+          headers
+        }
+      });
+      if (out.length >= 10) break;
+    }
+    ctx.log.info(`[iptvorg] Resolved ${out.length} stream(s) for "${media.channelName}".`);
+    return out;
+  });
+  return _getStreams.apply(this, arguments);
+}
+var index_default = defineProviderModule(PROVIDER, manifest_default.providers["iptvorg"], {
+  getStreams
 });

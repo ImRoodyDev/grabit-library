@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AUTO-GENERATED — Do not edit manually                      ║
-// ║  Provider: wyziesubs                                       ║
+// ║  Provider: publiciptv                                      ║
 // ║  Bundled with esbuild — npx bundle-provider                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -12144,7 +12144,7 @@ var require_cjs = __commonJS({
   }
 });
 
-// providers/subtitle/wyziesubs/index.ts
+// providers/live/publiciptv/index.ts
 var index_exports = {};
 __export(index_exports, {
   default: () => index_default
@@ -12351,7 +12351,6 @@ var DebugLogger = /*#__PURE__*/function () {
 var _Logger = new DebugLogger((process.env?.NODE_ENV ?? process.env?.ENV) !== "production", "GRABIT-ENGINE");
 
 // node_modules/grabit-engine/dist/esm/src/utils/standard.js
-var secondsToMilliseconds = seconds => seconds * 1e3;
 function normalizeHeaders(headers) {
   const seen = /* @__PURE__ */new Map();
   const result = {};
@@ -13314,79 +13313,84 @@ var manifest_default = {
   }
 };
 
-// providers/subtitle/wyziesubs/config.ts
+// providers/live/publiciptv/config.ts
 var config = {
-  scheme: "wyziesubs",
-  name: "Wyziesubs",
+  scheme: "publiciptv",
+  name: "Public IPTV",
   language: "*",
-  baseUrl: "https://sub.wyzie.ru",
+  baseUrl: "https://publiciptv.com/",
   entries: {
-    movie: {
-      endpoint: "/search?id={id:string}&format=srt"
-    },
-    serie: {
-      endpoint: "/search?id={id:string}&season={season:1}&episode={episode:1}&format=srt"
+    channel: {
+      endpoint: "/channels/{id:string}"
     }
-  },
-  mediaIds: ["imdb", "tmdb"],
-  contentAreCORSProtected: true
+  }
 };
 var PROVIDER = Provider.create(config);
-var API_KEYS = process.env.WYZIE_SUBS_KEYS?.split(",") ?? [""];
-function getKey() {
-  return API_KEYS[Math.floor(Math.random() * API_KEYS.length)] || API_KEYS[0];
-}
 
-// providers/subtitle/wyziesubs/subtitle.ts
-function getSubtitles(_x12, _x13) {
-  return _getSubtitles.apply(this, arguments);
-} // providers/subtitle/wyziesubs/index.ts
-function _getSubtitles() {
-  _getSubtitles = _asyncToGenerator(function* (requester, ctx) {
-    if (requester.media.type === "channel") return [];
-    const subSources = ["subdl", "subf2m", "opensubtitles", "podnapisi", "animetosho", "gestdown"];
-    let urls = deduplicateArray([PROVIDER.createResourceURL(requester), new URL(PROVIDER.createPatternString(requester.media.type === "movie" ? "/search?id={tmdb:string}&format=srt" : "/search?id={tmdb:string}&season={season:1}&episode={episode:1}&format=srt", requester.media), PROVIDER.config.baseUrl)]);
-    urls = urls.flatMap(url => subSources.map(source => {
-      const newUrl = new URL(url.href);
-      newUrl.searchParams.set("source", source);
-      newUrl.searchParams.set("key", getKey());
-      return newUrl;
-    }));
-    const subtitleResults = [];
-    for (const [i, url] of urls.entries()) {
-      ctx.log.info(`Attempting to fetch subtitles from URL ${i + 1}/${urls.length}: ${url.href}`);
-      try {
-        const subtitles = yield ctx.xhr.fetchResponse(url, {
-          method: "GET",
-          attachUserAgent: true,
-          timeout: secondsToMilliseconds(3)
-        }, requester);
-        if (subtitles && subtitles.length > 0) {
-          ctx.log.info(`Successfully fetched ${subtitles.length} subtitles from URL ${url.href}`);
-          subtitleResults.push(...subtitles);
-        } else {
-          ctx.log.warn(`No subtitles found at URL ${url.href}`);
-        }
-        if (subtitleResults.length > 0) break;
-      } catch (error) {
-        ctx.log.error(`Failed to fetch subtitles from URL ${url.href}: ${error.message}`);
-        continue;
+// providers/live/publiciptv/stream.ts
+var norm = s => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+function formatOf(url) {
+  if (/\.mpd(\?|$)/i.test(url)) return "dash";
+  if (/\.mp4(\?|$)/i.test(url)) return "mp4";
+  return "m3u8";
+}
+function candidateSlugs(media) {
+  const id = media.channelId ?? "";
+  const name = media.channelName ?? "";
+  const cc = id.includes(".") ? norm(id.split(".").pop() ?? "") : "";
+  const nName = norm(name);
+  const out = [norm(id), cc ? nName + cc : "", nName + "us", nName].filter(Boolean);
+  return [...new Set(out)];
+}
+function extractSources(html) {
+  const marker = html.indexOf("Choose Stream Source");
+  const scope = marker >= 0 ? html.slice(marker, marker + 8e3) : html;
+  const urls = scope.match(/https?:\/\/[^"'\\\s<]+\.(?:m3u8|mpd|mp4)[^"'\\\s<]*/gi) ?? [];
+  const clean = urls.map(u => u.replace(/&amp;/g, "&").replace(/\\+$/, ""));
+  return [...new Set(clean)];
+}
+function getStreams(_x12, _x13) {
+  return _getStreams.apply(this, arguments);
+} // providers/live/publiciptv/index.ts
+function _getStreams() {
+  _getStreams = _asyncToGenerator(function* (requester, ctx) {
+    if (requester.media.type !== "channel") return [];
+    const media = requester.media;
+    const base = new URL(PROVIDER.config.baseUrl);
+    let sources = [];
+    for (const slug of candidateSlugs(media)) {
+      const url = new URL(`channels/${slug}`, base);
+      const res = yield ctx.xhr.fetch(url, {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        cacheTTL: 36e5
+      }, requester).catch(() => null);
+      if (!res || res.status !== 200) continue;
+      const html = yield res.text().catch(() => "");
+      sources = extractSources(html);
+      if (sources.length) {
+        ctx.log.info(`[publiciptv] Matched /channels/${slug} (${sources.length} source(s)).`);
+        break;
       }
     }
-    return subtitleResults.map(subtitle => ({
-      fileName: subtitle.fileName,
-      url: subtitle.url,
-      language: subtitle.language,
-      format: subtitle.format,
-      languageName: subtitle.display,
+    if (!sources.length) {
+      ctx.log.warn(`[publiciptv] No channel page/sources for "${media.channelName}" (${media.channelId}).`);
+      return [];
+    }
+    return sources.slice(0, 12).map(url => ({
+      fileName: media.channelName || "Channel",
+      playlist: url,
+      language: "en",
+      format: formatOf(url),
       xhr: {
         flags: ["CORS_BLOCKED"],
         headers: {}
       }
     }));
   });
-  return _getSubtitles.apply(this, arguments);
+  return _getStreams.apply(this, arguments);
 }
-var index_default = defineProviderModule(PROVIDER, manifest_default.providers["wyziesubs"], {
-  getSubtitles
+var index_default = defineProviderModule(PROVIDER, manifest_default.providers["publiciptv"], {
+  getStreams
 });
