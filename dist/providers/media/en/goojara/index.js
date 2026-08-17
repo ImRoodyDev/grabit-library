@@ -12740,7 +12740,7 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x42) {
+      return function (_x46) {
         return _ref4.apply(this, arguments);
       };
     }()));
@@ -12764,7 +12764,7 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x43) {
+      return function (_x47) {
         return _ref5.apply(this, arguments);
       };
     }()));
@@ -13527,6 +13527,39 @@ var manifest_default = {
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/subtitle"
+    },
+    vixsrc: {
+      name: "VixSrc",
+      version: "1.0.0",
+      active: true,
+      language: ["en", "it"],
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/multi"
+    },
+    rgshows: {
+      name: "RgShows",
+      version: "1.0.0",
+      active: false,
+      language: "en",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/multi"
+    },
+    homecine: {
+      name: "HomeCine",
+      version: "1.0.0",
+      active: true,
+      language: "es",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/es"
     }
   }
 };
@@ -13883,7 +13916,7 @@ function _extractSupervideoStreams() {
 }
 function extractDroploadStreams(_x32, _x33, _x34, _x35) {
   return _extractDroploadStreams.apply(this, arguments);
-} // providers/extractors/embedDispatch.ts
+} // providers/extractors/fastream.ts
 function _extractDroploadStreams() {
   _extractDroploadStreams = _asyncToGenerator(function* (embedURL, requestOpts, ctx, meta) {
     const id = embedURL.pathname.split("/").filter(Boolean).pop()?.replace("embed-", "");
@@ -13945,7 +13978,56 @@ function _extractDroploadStreams() {
   });
   return _extractDroploadStreams.apply(this, arguments);
 }
-function dispatchEmbed(_x36, _x37, _x38, _x39) {
+function extractFastreamStreams(_x36, _x37, _x38, _x39) {
+  return _extractFastreamStreams.apply(this, arguments);
+} // providers/extractors/embedDispatch.ts
+function _extractFastreamStreams() {
+  _extractFastreamStreams = _asyncToGenerator(function* (embedURL, requestOpts, ctx, meta) {
+    const normalized = new URL(embedURL.href.replace("/e/", "/embed-").replace("/d/", "/embed-"));
+    ctx.log.debug(`[fastream] Loading embed page: ${normalized.href}`);
+    const opts = {
+      ...requestOpts,
+      followRedirects: true,
+      extraHeaders: {
+        ...(requestOpts.extraHeaders || {}),
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+        Referer: "https://fastream.to/",
+        "Upgrade-Insecure-Requests": "1"
+      }
+    };
+    const page = yield ctx.cheerio.load(normalized, opts, ctx.xhr);
+    const scriptContent = page.$('script:contains("eval")').html();
+    if (!scriptContent || scriptContent.trim() === "") {
+      ctx.log.warn("[fastream] No eval-packed script found on the page.");
+      return null;
+    }
+    const unpackedCode = unpackV2(scriptContent);
+    if (!unpackedCode) {
+      ctx.log.warn("[fastream] Failed to unpack the player script.");
+      return null;
+    }
+    const unpackedArgs = extractContructorJSONArguments(unpackedCode.replace('jwplayer("vplayer").setup', "new Setup"));
+    if (!unpackedArgs?.sources?.length) {
+      ctx.log.warn("[fastream] No sources in jwplayer setup.");
+      return null;
+    }
+    return unpackedArgs.sources.filter(s => s.file).map(source => ({
+      fileName: `[Fastream] ${meta.fileName ?? "Video"}`,
+      format: meta.format || "m3u8",
+      playlist: source.file,
+      language: meta.language,
+      xhr: {
+        flags: ["CORS_BLOCKED", "REFERER_LOCKED", "IP_LOCKED"],
+        headers: {
+          Referer: "https://fastream.to/"
+        }
+      }
+    }));
+  });
+  return _extractFastreamStreams.apply(this, arguments);
+}
+function dispatchEmbed(_x40, _x41, _x42, _x43) {
   return _dispatchEmbed.apply(this, arguments);
 } // providers/media/en/goojara/stream.ts
 function _dispatchEmbed() {
@@ -13974,6 +14056,8 @@ function _dispatchEmbed() {
         out = yield extractSupervideoStreams(url, opts, ctx, meta);
       } else if (/dropload|dr0p|drop(load|stream)/.test(host)) {
         out = yield extractDroploadStreams(url, opts, ctx, meta);
+      } else if (/fastream|fstream/.test(host)) {
+        out = yield extractFastreamStreams(url, opts, ctx, meta);
       } else {
         ctx.log.debug(`[dispatch] No extractor for host ${host}, skipping.`);
         return [];
@@ -13987,7 +14071,7 @@ function _dispatchEmbed() {
   });
   return _dispatchEmbed.apply(this, arguments);
 }
-function getStreams(_x40, _x41) {
+function getStreams(_x44, _x45) {
   return _getStreams.apply(this, arguments);
 } // providers/media/en/goojara/index.ts
 function _getStreams() {

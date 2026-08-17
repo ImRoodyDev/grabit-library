@@ -1,6 +1,6 @@
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AUTO-GENERATED — Do not edit manually                      ║
-// ║  Provider: 1cinevood                                       ║
+// ║  Provider: rgshows                                         ║
 // ║  Bundled with esbuild — npx bundle-provider                 ║
 // ╚══════════════════════════════════════════════════════════════╝
 
@@ -12144,7 +12144,7 @@ var require_cjs = __commonJS({
   }
 });
 
-// providers/media/multi/1cinevood/index.ts
+// providers/media/multi/rgshows/index.ts
 var index_exports = {};
 __export(index_exports, {
   default: () => index_default
@@ -12152,14 +12152,9 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 
 // node_modules/grabit-engine/dist/esm/src/utils/extractor.js
-var YEAR_REGEX = /(19|20)\d{2}/;
 function extractExtension(url) {
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
   return match ? match[1] : null;
-}
-function extractYearFromText(text) {
-  const yearMatch = text.match(YEAR_REGEX);
-  return yearMatch ? parseInt(yearMatch[0], 10) : null;
 }
 
 // node_modules/grabit-engine/dist/esm/src/controllers/provider.js
@@ -12570,7 +12565,7 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x58) {
+      return function (_x14) {
         return _ref4.apply(this, arguments);
       };
     }()));
@@ -12594,7 +12589,7 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x59) {
+      return function (_x15) {
         return _ref5.apply(this, arguments);
       };
     }()));
@@ -12989,55 +12984,6 @@ function parse(str = "", format = "ms") {
   return result && result / (parse.unit[format] || 1) * (str[0] === "-" ? -1 : 1);
 }
 
-// node_modules/grabit-engine/dist/esm/src/utils/similarity.js
-function calculateMatchScore(criteria, media) {
-  let score = 0;
-  if (media.type == "channel") return cosineSimilarity(media.channelName, criteria.title || "") * 100;
-  if (media.title && criteria.title) {
-    const queryVector = buildVector(criteria.title);
-    const distance = cosineSimilarityVectors(buildVector(media.title), queryVector);
-    const distances = media.localizedTitles.map(t => cosineSimilarityVectors(buildVector(t), queryVector));
-    score += Math.max(distance, ...distances) * 100;
-  }
-  if (media.releaseYear && criteria.year && media.releaseYear.toString() === criteria.year) {
-    score += 50;
-  }
-  if (media.duration && criteria.duration) {
-    const parsed = (parse(criteria.duration) ?? 0) / 6e4;
-    const diff = Math.abs(media.duration - parsed);
-    score += 20 - Math.min(diff, 20);
-  }
-  return score;
-}
-function cosineSimilarity(a, b) {
-  return cosineSimilarityVectors(buildVector(a), buildVector(b));
-}
-function cosineSimilarityVectors(vecA, vecB) {
-  const allWords = /* @__PURE__ */new Set([...vecA.keys(), ...vecB.keys()]);
-  let dotProduct = 0;
-  let magnitudeA = 0;
-  let magnitudeB = 0;
-  for (const word of allWords) {
-    const valA = vecA.get(word) || 0;
-    const valB = vecB.get(word) || 0;
-    dotProduct += valA * valB;
-    magnitudeA += valA * valA;
-    magnitudeB += valB * valB;
-  }
-  magnitudeA = Math.sqrt(magnitudeA);
-  magnitudeB = Math.sqrt(magnitudeB);
-  if (magnitudeA === 0 || magnitudeB === 0) return 0;
-  return dotProduct / (magnitudeA * magnitudeB);
-}
-function buildVector(text) {
-  const words = text.toLowerCase().split(/\W+/).filter(Boolean);
-  const freq = /* @__PURE__ */new Map();
-  for (const word of words) {
-    freq.set(word, (freq.get(word) || 0) + 1);
-  }
-  return freq;
-}
-
 // provider-shim:grabit-engine-provider-crypto-shim
 var runtimeRequire = typeof require === "function" ? require : void 0;
 var globalCryptoCandidates = [globalThis.__grabitCrypto, globalThis.Crypto, globalThis.crypto];
@@ -13323,663 +13269,67 @@ var manifest_default = {
   }
 };
 
-// providers/media/multi/1cinevood/config.ts
+// providers/media/multi/rgshows/config.ts
 var config = {
-  scheme: "1cinevood",
-  name: "Cinewood",
-  language: ["hi", "en"],
-  baseUrl: "https://cinevood.cl",
+  scheme: "rgshows",
+  name: "RgShows",
+  language: "en",
+  baseUrl: "https://api.rgshows.ru/",
   entries: {
     movie: {
-      endpoint: "/?s={title:form-uri}"
+      endpoint: "/main/movie/{id:string}"
     },
     serie: {
-      endpoint: "/?s={title:form-uri}"
+      endpoint: "/main/tv/{id:string}/{season:1}/{episode:1}"
     }
   },
-  mediaIds: ["imdb", "tmdb"],
-  contentAreCORSProtected: true
+  mediaIds: ["tmdb"]
 };
 var PROVIDER = Provider.create(config);
 
-// providers/extractors/hubcloud.ts
-function extractUrlFromScript(html) {
-  const doubleAtobMatch = html.match(/(?:var|let|const)\s+\w+\s*=\s*atob\(atob\(['"]([^'"]+)['"]\)\)/);
-  if (doubleAtobMatch?.[1]) {
-    try {
-      return atob(atob(doubleAtobMatch[1]));
-    } catch {}
-  }
-  const plainMatch = html.match(/var\s+url\s*=\s*['"]([^'"]+)['"]/);
-  const rSegment = plainMatch?.[1]?.split("r=")?.[1];
-  if (rSegment) {
-    try {
-      return atob(rSegment);
-    } catch {}
-  }
-  return plainMatch?.[1] || "";
-}
-function getRedirectedPixelDrainUrl(...htmlSources) {
-  for (const html of htmlSources) {
-    if (!html) continue;
-    const match = html.match(/var\s+pxl\s*=\s*['"]([^'"]+)['"];?/i);
-    if (match?.[1]) return match[1];
-  }
-  return "";
-}
-function fetchTextWithCloudflareFallback(_x12, _x13, _x14, _x15, _x16) {
-  return _fetchTextWithCloudflareFallback.apply(this, arguments);
-}
-function _fetchTextWithCloudflareFallback() {
-  _fetchTextWithCloudflareFallback = _asyncToGenerator(function* (target, headers, requester, ctx, cookieJar) {
-    const requestHeaders = {
-      ...headers
-    };
-    if (cookieJar.cookie) requestHeaders.cookie = cookieJar.cookie;
-    try {
-      const response = yield ctx.xhr.fetch(target, {
-        method: "GET",
-        attachUserAgent: true,
-        clean: true,
-        headers: requestHeaders
-      }, requester);
-      if (response.status !== 403 && response.ok) {
-        return yield response.text();
-      }
-      if (response.status !== 403) {
-        ctx.log.warn(`[hubcloud] ${target.href} -> HTTP ${response.status}`);
-        return yield response.text().catch(() => null);
-      }
-      ctx.log.warn(`[hubcloud] Cloudflare 403 for ${target.href}, falling back to browser session.`);
-    } catch (error) {
-      ctx.log.warn(`[hubcloud] xhr fetch failed for ${target.href} (${error.message}), trying browser session.`);
-    }
-    try {
-      const solved = yield ctx.solveChallenge(target, requester, {
-        waitForCookie: "cf_clearance"
-      });
-      if (solved.cookies) cookieJar.cookie = solved.cookies;
-      return solved.html;
-    } catch (error) {
-      ctx.log.error(`[hubcloud] Challenge solve failed for ${target.href}: ${error.message}`);
-      return null;
-    }
-  });
-  return _fetchTextWithCloudflareFallback.apply(this, arguments);
-}
-function extractHubcloudStreams(_x17, _x18, _x19, _x20) {
-  return _extractHubcloudStreams.apply(this, arguments);
-}
-function _extractHubcloudStreams() {
-  _extractHubcloudStreams = _asyncToGenerator(function* (link, requester, ctx, meta) {
-    const startURL = typeof link === "string" ? new URL(link) : link;
-    ctx.log.debug(`[hubcloud] Resolving: ${startURL.href}`);
-    const headers = {
-      Referer: startURL.origin + "/"
-    };
-    const cookieJar = {
-      cookie: "ext_name=ojplmecpdpgccookcobabopnaifgidhf; xla=s4t"
-    };
-    if (startURL.pathname.includes("search-recover.php")) {
-      return handleSearchRecover(startURL, headers, cookieJar, requester, ctx, meta);
-    }
-    return resolveDrivePage(startURL, headers, cookieJar, requester, ctx, meta);
-  });
-  return _extractHubcloudStreams.apply(this, arguments);
-}
-function handleSearchRecover(_x21, _x22, _x23, _x24, _x25, _x26) {
-  return _handleSearchRecover.apply(this, arguments);
-}
-function _handleSearchRecover() {
-  _handleSearchRecover = _asyncToGenerator(function* (recoverURL, headers, cookieJar, requester, ctx, meta) {
-    let resolvedURL = recoverURL;
-    try {
-      const probe = yield ctx.xhr.fetch(recoverURL, {
-        method: "GET",
-        attachUserAgent: true,
-        clean: true,
-        headers: {
-          ...headers
-        },
-        redirect: "follow"
-      }, requester);
-      if (probe.url && /search-recover\.php/i.test(probe.url)) resolvedURL = new URL(probe.url);
-    } catch {}
-    const apiURL = new URL(resolvedURL.href);
-    apiURL.searchParams.set("api", "search");
-    apiURL.searchParams.set("page", "1");
-    let hits = [];
-    try {
-      const json = yield ctx.xhr.fetchResponse(apiURL, {
-        method: "GET",
-        attachUserAgent: true,
-        clean: true,
-        headers: {
-          ...headers,
-          Accept: "application/json"
-        }
-      }, requester);
-      hits = Array.isArray(json?.hits) ? json.hits : [];
-    } catch (error) {
-      ctx.log.warn(`[hubcloud] search-recover API failed: ${error.message}`);
-      return [];
-    }
-    const tokens = (meta.matchTokens ?? []).map(t => t.toLowerCase()).filter(t => t.length >= 3);
-    const accepted = hits.filter(hit => {
-      if (!hit.url) return false;
-      if (tokens.length === 0) return true;
-      const name = (hit.file_name ?? "").toLowerCase();
-      return tokens.some(t => name.includes(t));
-    });
-    ctx.log.info(`[hubcloud] search-recover: ${hits.length} hit(s), ${accepted.length} passed the title guard (tokens: ${tokens.join(",") || "none"}).`);
-    if (accepted.length === 0 && hits.length > 0) {
-      ctx.log.warn("[hubcloud] All recovered hits looked unrelated to the requested title; skipping.");
-    }
-    const results = [];
-    for (const hit of accepted.slice(0, 3)) {
-      try {
-        const sources = yield resolveDrivePage(new URL(hit.url), headers, cookieJar, requester, ctx, {
-          ...meta,
-          fileName: hit.file_name ?? meta.fileName
-        });
-        results.push(...sources);
-      } catch (error) {
-        ctx.log.debug(`[hubcloud] Failed resolving recovered hit ${hit.url}: ${error.message}`);
-      }
-    }
-    return results;
-  });
-  return _handleSearchRecover.apply(this, arguments);
-}
-function resolveDrivePage(_x27, _x28, _x29, _x30, _x31, _x32) {
-  return _resolveDrivePage.apply(this, arguments);
-}
-function _resolveDrivePage() {
-  _resolveDrivePage = _asyncToGenerator(function* (startURL, headers, cookieJar, requester, ctx, meta) {
-    const baseUrl = startURL.origin;
-    const vLinkText = yield fetchTextWithCloudflareFallback(startURL, headers, requester, ctx, cookieJar);
-    if (!vLinkText) {
-      ctx.log.warn("[hubcloud] Could not load the initial HubCloud page.");
-      return [];
-    }
-    const $vLink = ctx.cheerio.$load(vLinkText);
-    let vcloudLink = extractUrlFromScript(vLinkText) || $vLink(".fa-file-download.fa-lg").parent().attr("href") || startURL.href;
-    if (vcloudLink.startsWith("/")) vcloudLink = `${baseUrl}${vcloudLink}`;
-    ctx.log.debug(`[hubcloud] vcloud link: ${vcloudLink}`);
-    const vcloudURL = new URL(vcloudLink);
-    const vcloudText = yield fetchTextWithCloudflareFallback(vcloudURL, headers, requester, ctx, cookieJar);
-    if (!vcloudText) {
-      ctx.log.warn("[hubcloud] Could not load the vcloud page.");
-      return [];
-    }
-    const $ = ctx.cheerio.$load(vcloudText);
-    const rawLinks = [];
-    const buttons = $(".btn-success.btn-lg.h6,.btn-danger,.btn-secondary").toArray();
-    for (const element of buttons) {
-      let href = $(element).attr("href") || "";
-      if (!href) continue;
-      if (href.includes("pixeld")) {
-        if (!href.includes("api")) {
-          const redirected = getRedirectedPixelDrainUrl(vLinkText, vcloudText);
-          if (redirected) href = redirected;
-          const token = href.split("/").pop()?.split("?")[0];
-          const pxlBase = href.split("/").slice(0, -2).join("/");
-          href = `${pxlBase}/api/file/${token}?download`;
-        }
-        rawLinks.push({
-          server: "Pixeldrain",
-          url: href
-        });
-      } else if (href.includes(".dev") && !href.includes("/?id=")) {
-        rawLinks.push({
-          server: "Cf-Worker",
-          url: href
-        });
-      } else if (href.includes("hubcloud") || href.includes("/?id=")) {
-        const resolved = yield resolveNestedHubcloud(href, headers, cookieJar, requester, ctx);
-        if (resolved) rawLinks.push({
-          server: "HubCloud",
-          url: resolved
-        });
-      } else if (href.includes("cloudflarestorage")) {
-        rawLinks.push({
-          server: "CfStorage",
-          url: href
-        });
-      } else if (href.includes("fastdl") || href.includes("fsl.")) {
-        rawLinks.push({
-          server: "FastDl",
-          url: href
-        });
-      } else if (href.includes("hubcdn") && !href.includes("/?id=")) {
-        rawLinks.push({
-          server: "HubCdn",
-          url: href
-        });
-      } else if (href.includes(".mkv") || href.includes("?token=")) {
-        const serverName = href.match(/^(?:https?:\/\/)?(?:www\.)?([^/]+)/i)?.[1]?.replace(/\./g, " ") || "Direct";
-        rawLinks.push({
-          server: serverName,
-          url: href
-        });
-      }
-    }
-    ctx.log.info(`[hubcloud] Resolved ${rawLinks.length} mirror link(s).`);
-    const label = [meta.fileName, meta.quality].filter(Boolean).join(" ").trim() || "HubCloud";
-    return rawLinks.map(raw => {
-      const format = guessFormat(raw.url);
-      return {
-        fileName: `[${raw.server}] ${label}`.trim(),
-        playlist: raw.url,
-        language: meta.language,
-        ...(format ? {
-          format
-        } : {}),
-        xhr: {
-          flags: ["CORS_BLOCKED"],
-          headers: {}
-        }
-      };
-    });
-  });
-  return _resolveDrivePage.apply(this, arguments);
-}
-function resolveNestedHubcloud(_x33, _x34, _x35, _x36, _x37) {
-  return _resolveNestedHubcloud.apply(this, arguments);
-}
-function _resolveNestedHubcloud() {
-  _resolveNestedHubcloud = _asyncToGenerator(function* (href, headers, cookieJar, requester, ctx) {
-    try {
-      const headHeaders = {
-        ...headers,
-        ...(cookieJar.cookie ? {
-          cookie: cookieJar.cookie
-        } : {})
-      };
-      const first = yield ctx.xhr.fetch(new URL(href), {
-        method: "HEAD",
-        attachUserAgent: true,
-        clean: true,
-        headers: headHeaders,
-        redirect: "manual"
-      }, requester);
-      let newLink = first.headers.get("location") || (first.url && first.url !== href ? first.url : href);
-      if (newLink.includes("googleusercontent")) {
-        return newLink.split("?link=")[1] || newLink;
-      }
-      const second = yield ctx.xhr.fetch(new URL(newLink), {
-        method: "HEAD",
-        attachUserAgent: true,
-        clean: true,
-        headers: headHeaders,
-        redirect: "manual"
-      }, requester);
-      const secondLoc = second.headers.get("location");
-      if (secondLoc) return secondLoc.split("?link=")[1] || secondLoc;
-      if (second.url && second.url !== newLink) return second.url.split("?link=")[1] || second.url;
-      return newLink;
-    } catch (error) {
-      ctx.log.debug(`[hubcloud] Nested resolution failed for ${href}: ${error.message}`);
-      return href;
-    }
-  });
-  return _resolveNestedHubcloud.apply(this, arguments);
-}
-function guessFormat(url) {
-  const lower = url.toLowerCase();
-  if (lower.includes(".m3u8")) return "m3u8";
-  if (lower.includes(".mkv")) return "mkv";
-  if (lower.includes(".mp4")) return "mp4";
-  if (lower.includes(".webm")) return "webm";
-  return void 0;
-}
-
-// providers/extractors/hubchain.ts
-function detectQuality(text) {
-  const t = text.toLowerCase();
-  if (t.includes("2160p") || t.includes("4k")) return "4k";
-  if (t.includes("1080p")) return "1080p";
-  if (t.includes("720p")) return "720p";
-  if (t.includes("480p")) return "480p";
-  return "Unknown";
-}
-
-// providers/extractors/postMatch.ts
-function cleanTitle(raw) {
-  return raw.replace(/\(.*?\)/g, " ").replace(/\[.*?\]/g, " ").replace(/\b(480p|720p|1080p|2160p|4k|hd|web[- ]?dl|webrip|bluray|hevc|x264|x265|hindi|english|dual audio|dubbed|season\s*\d+|s\d+|complete|full movie)\b/gi, " ").replace(/[-_.]+/g, " ").replace(/\s+/g, " ").trim();
-}
-function getSeasonFromText(text) {
-  const m2 = text.match(/\bseason\s*(\d{1,2})\b/i) || text.match(/\bs(\d{1,2})(?:\b|e)/i);
-  return m2 ? Number(m2[1]) : null;
-}
-function pickBestPost(posts, media, minScore = 45) {
-  const wantSeason = media.type === "serie" ? Number(media.season) : null;
-  const scored = posts.map(post => {
-    const year = extractYearFromText(post.title)?.toString() || "";
-    let score = calculateMatchScore({
-      title: cleanTitle(post.title),
-      year
-    }, media);
-    if (wantSeason != null) {
-      const postSeason = getSeasonFromText(post.title);
-      if (postSeason != null) score += postSeason === wantSeason ? 25 : -60;
-    }
-    return {
-      post,
-      score
-    };
-  }).sort((a, b) => b.score - a.score);
-  const top = scored[0];
-  if (!top || top.score < minScore) return null;
-  return top;
-}
-
-// providers/media/multi/1cinevood/stream.ts
-var HEADERS = {};
-var MAX_CANDIDATES = 3;
-var POST_SELECTORS = [".pstr_box", "article", ".result-item", ".post", ".item", ".thumbnail", ".latest-movies", ".movie-item", ".ml-item", ".cv-post"].join(",");
-function loadPageWithCF(_x38, _x39, _x40, _x41) {
-  return _loadPageWithCF.apply(this, arguments);
-}
-function _loadPageWithCF() {
-  _loadPageWithCF = _asyncToGenerator(function* (url, requester, ctx, pageOpt) {
-    try {
-      const {
-        $: $2
-      } = yield ctx.cheerio.load(url, pageOpt, ctx.xhr);
-      const title = $2("title").text();
-      const challenged = /just a moment|attention required|checking your browser|cf-browser-verification/i.test(title);
-      if (!challenged && $2("body").text().trim().length > 200) return $2;
-      ctx.log.warn(`[1cinevood] Cloudflare challenge on ${url.href}, solving.`);
-    } catch (error) {
-      ctx.log.warn(`[1cinevood] Direct load failed for ${url.href} (${error.message}), solving.`);
-    }
-    const CHALLENGE_RE = /just a moment|attention required|checking your browser|cf-browser-verification/i;
-    const solved = yield ctx.solveChallenge(url, requester, {
-      waitForCookie: "cf_clearance"
-    });
-    const $ = ctx.cheerio.$load(solved.html);
-    if (CHALLENGE_RE.test($("title").text())) {
-      ctx.log.warn(`[1cinevood] Cloudflare still challenging ${url.href} after solve; may yield no results.`);
-    }
-    return $;
-  });
-  return _loadPageWithCF.apply(this, arguments);
-}
-function getStreams(_x42, _x43) {
+// providers/media/multi/rgshows/stream.ts
+function getStreams(_x12, _x13) {
   return _getStreams.apply(this, arguments);
-}
+} // providers/media/multi/rgshows/index.ts
 function _getStreams() {
   _getStreams = _asyncToGenerator(function* (requester, ctx) {
     if (requester.media.type === "channel") return [];
     const media = requester.media;
-    const pageOpt = {
-      ...requester,
-      followRedirects: true,
-      extraHeaders: {
-        ...HEADERS
-      }
+    const apiUrl = PROVIDER.createResourceURL(requester);
+    const headers = {
+      Referer: "https://www.rgshows.ru/",
+      Origin: "https://www.rgshows.ru"
     };
-    const imdbUrl = media.imdbId ? new URL(PROVIDER.createPatternString("/?s={imdb:string}", media), `${PROVIDER.config.baseUrl}/`) : void 0;
-    let posts = [];
-    for (const url of PROVIDER.createResourceUrls(requester, imdbUrl)) {
-      posts = yield searchPosts(url, requester, ctx, pageOpt);
-      if (posts.length > 0) break;
-    }
-    if (posts.length === 0) {
-      ctx.log.warn("[1cinevood] No search results.");
+    const text = yield ctx.xhr.fetch(apiUrl, {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      headers
+    }, requester).then(r => r.text()).catch(() => "");
+    let streamUrl = "";
+    try {
+      streamUrl = JSON.parse(text).stream?.url ?? "";
+    } catch {
+      ctx.log.warn("[rgshows] API did not return JSON (host likely offline).");
       return [];
     }
-    const best = pickBestPost(posts, media);
-    if (!best) {
-      ctx.log.warn("[1cinevood] No post cleared the match threshold.");
-      return [];
-    }
-    ctx.log.info(`[1cinevood] Best match: "${best.post.title}" (score ${best.score}) -> ${best.post.link}`);
-    const candidates = yield getCandidateLinks(best.post.link, requester, ctx, pageOpt);
-    if (candidates.length === 0) {
-      ctx.log.warn("[1cinevood] No download candidates on the post page.");
-      return [];
-    }
-    ctx.log.info(`[1cinevood] ${candidates.length} candidate link(s) before resolution.`);
-    const results = [];
-    for (const cand of candidates.slice(0, MAX_CANDIDATES)) {
-      try {
-        const hubcloudLink = yield resolveCinevoodLink(cand.link, requester, ctx);
-        if (!hubcloudLink) {
-          ctx.log.debug(`[1cinevood] Could not resolve candidate: ${cand.link}`);
-          continue;
-        }
-        const sources = yield extractHubcloudStreams(hubcloudLink, requester, ctx, {
-          fileName: `${best.post.title} ${cand.label}`.trim(),
-          quality: cand.quality,
-          language: "hi"
-        });
-        results.push(...sources);
-      } catch (error) {
-        ctx.log.error(`[1cinevood] Candidate resolution failed (${cand.link}): ${error.message}`);
+    if (!streamUrl) return [];
+    const isMp4 = streamUrl.includes("mp4");
+    const format = isMp4 ? "mp4" : "m3u8";
+    ctx.log.info(`[rgshows] Resolved ${format}: ${streamUrl}`);
+    return [{
+      fileName: media.title,
+      playlist: streamUrl,
+      language: "en",
+      format,
+      xhr: {
+        flags: ["CORS_BLOCKED", "REFERER_LOCKED"],
+        headers
       }
-    }
-    ctx.log.info(`[1cinevood] Returning ${results.length} source(s).`);
-    return results;
+    }];
   });
   return _getStreams.apply(this, arguments);
 }
-function searchPosts(_x44, _x45, _x46, _x47) {
-  return _searchPosts.apply(this, arguments);
-}
-function _searchPosts() {
-  _searchPosts = _asyncToGenerator(function* (url, requester, ctx, pageOpt) {
-    const baseUrl = PROVIDER.config.baseUrl;
-    try {
-      const $ = yield loadPageWithCF(url, requester, ctx, pageOpt);
-      let posts = parseCards($, baseUrl);
-      if (posts.length === 0) posts = parseAnchorFallback($, baseUrl);
-      if (posts.length === 0) {
-        const t = $("title").text().trim().slice(0, 60);
-        const bodyLen = $("body").text().trim().length;
-        ctx.log.warn(`[1cinevood] 0 posts for ${url.href}. title="${t}" bodyLen=${bodyLen} | article=${$("article").length} .result-item=${$(".result-item").length} .post=${$(".post").length} .ml-item=${$(".ml-item").length} .pstr_box=${$(".pstr_box").length} h2a=${$("h2 a").length} h3a=${$("h3 a").length} entry-title=${$(".entry-title").length}`);
-        ctx.log.debug(`[1cinevood] body snippet: ${$("body").text().replace(/\s+/g, " ").trim().slice(0, 300)}`);
-      }
-      ctx.log.debug(`[1cinevood] Search ${url.href} -> ${posts.length} hit(s).`);
-      return posts;
-    } catch (error) {
-      ctx.log.warn(`[1cinevood] Search failed for ${url.href}: ${error.message}`);
-      return [];
-    }
-  });
-  return _searchPosts.apply(this, arguments);
-}
-var isInternalPostLink = path => path.startsWith("/") && !/^\/(?:$|page\/|category\/|genre\/|tag\/|wp-|feed|search|author\/|\?)/i.test(path) && path.length > 1;
-function parseCards($, baseUrl) {
-  const posts = [];
-  const seen = /* @__PURE__ */new Set();
-  $(POST_SELECTORS).each((_, el) => {
-    const card = $(el);
-    const href = card.find("a[href]").first().attr("href");
-    if (!href) return;
-    const postUrl = new URL(href, `${baseUrl}/`);
-    const link = `${postUrl.pathname}${postUrl.search}${postUrl.hash}`;
-    if (!isInternalPostLink(postUrl.pathname) || seen.has(link)) return;
-    let title = card.find(".cv-movie-title, .entry-title, .post-title, .title").first().text().trim() || card.find("h2, h3").first().text().trim() || card.find("a[title]").first().attr("title")?.trim() || card.find("img[alt]").first().attr("alt")?.trim() || card.find("a").first().text().trim() || "";
-    title = cleanCardTitle(title);
-    if (!title) return;
-    seen.add(link);
-    posts.push({
-      title,
-      link,
-      image: card.find("img").first().attr("src") || card.find("img").first().attr("data-src") || ""
-    });
-  });
-  return posts;
-}
-function parseAnchorFallback($, baseUrl) {
-  const posts = [];
-  const seen = /* @__PURE__ */new Set();
-  $("h2 a[href], h3 a[href], .entry-title a[href], .title a[href], .result-item a[href]").each((_, el) => {
-    const a = $(el);
-    const href = a.attr("href");
-    if (!href) return;
-    let postUrl;
-    try {
-      postUrl = new URL(href, `${baseUrl}/`);
-    } catch {
-      return;
-    }
-    if (postUrl.host !== new URL(baseUrl).host || !isInternalPostLink(postUrl.pathname)) return;
-    const link = `${postUrl.pathname}${postUrl.search}`;
-    if (seen.has(link)) return;
-    const title = cleanCardTitle(a.text().trim() || a.attr("title")?.trim() || "");
-    if (!title) return;
-    seen.add(link);
-    posts.push({
-      title,
-      link,
-      image: ""
-    });
-  });
-  return posts;
-}
-function cleanCardTitle(raw) {
-  return raw.replace(/\[.*?\]/g, "").replace(/\s{2,}/g, " ").trim();
-}
-function getCandidateLinks(_x48, _x49, _x50, _x51) {
-  return _getCandidateLinks.apply(this, arguments);
-}
-function _getCandidateLinks() {
-  _getCandidateLinks = _asyncToGenerator(function* (link, requester, ctx, pageOpt) {
-    const url = new URL(link, `${PROVIDER.config.baseUrl}/`);
-    const $ = yield loadPageWithCF(url, requester, ctx, pageOpt);
-    const container = $(".entry-content, .post-inner").first().length ? $(".entry-content, .post-inner").first() : $("body");
-    const media = requester.media;
-    const candidates = [];
-    const isLinkHost = h2 => /(?:oxxfile|hubcloud)/i.test(h2);
-    const blocks = container.find("h5,h6").filter((_, el) => {
-      const t = $(el).text();
-      return !/watch online/i.test(t) && /\d{3,4}p|2160p|4k|s\d{1,2}|e\d{1,3}/i.test(t);
-    }).toArray();
-    if (media.type === "serie") {
-      const wantSeason = Number(media.season);
-      const wantEpisode = Number(media.episode);
-      for (const el of blocks) {
-        const heading = $(el).text();
-        const season = getSeasonFromText(heading);
-        if (season != null && season !== wantSeason) continue;
-        const packLink = $(el).nextUntil("h5,h6,hr").find("a").filter((_, a) => isLinkHost($(a).attr("href") || "")).first().attr("href");
-        if (!packLink) continue;
-        const eps = yield getEpisodesFromApi(packLink, requester, ctx);
-        const ep = eps.find(e => episodeNumberOf(e.title) === wantEpisode);
-        if (ep) candidates.push({
-          quality: detectQuality(heading),
-          link: ep.link,
-          label: `E${wantEpisode}`
-        });
-      }
-    } else {
-      for (const el of blocks) {
-        const heading = $(el).text();
-        const quality = heading.match(/\d{3,4}p/)?.[0] || detectQuality(heading);
-        $(el).nextUntil("h5,h6,hr").find("a").each((_, a) => {
-          const href = $(a).attr("href");
-          if (href && isLinkHost(href)) candidates.push({
-            quality,
-            link: href,
-            label: quality
-          });
-        });
-      }
-      if (candidates.length === 0) {
-        container.find('a[href*="oxxfile"],a[href*="hubcloud"]').each((_, a) => {
-          const href = $(a).attr("href");
-          if (href) candidates.push({
-            quality: "Unknown",
-            link: href,
-            label: "Movie"
-          });
-        });
-      }
-    }
-    const order = {
-      "4k": 4,
-      "2160p": 4,
-      "1080p": 3,
-      "720p": 2,
-      "480p": 1,
-      unknown: 0
-    };
-    const seen = /* @__PURE__ */new Set();
-    return candidates.filter(c => c.link && !seen.has(c.link) ? (seen.add(c.link), true) : false).sort((a, b) => (order[b.quality.toLowerCase()] || 0) - (order[a.quality.toLowerCase()] || 0));
-  });
-  return _getCandidateLinks.apply(this, arguments);
-}
-function getEpisodesFromApi(_x52, _x53, _x54) {
-  return _getEpisodesFromApi.apply(this, arguments);
-}
-function _getEpisodesFromApi() {
-  _getEpisodesFromApi = _asyncToGenerator(function* (packLink, requester, ctx) {
-    try {
-      const u = new URL(packLink);
-      const id = u.pathname.split("/").filter(Boolean).pop() || "";
-      const apiUrl = new URL(`/api/packs/${id}`, u.origin);
-      const json = yield ctx.xhr.fetchResponse(apiUrl, {
-        method: "GET",
-        attachUserAgent: true,
-        clean: true,
-        headers: {
-          ...HEADERS
-        }
-      }, requester);
-      const items = json?.pack?.items || [];
-      return items.filter(i => i?.file_name && i?.hubcloud_link).map(i => ({
-        title: String(i.file_name),
-        link: String(i.hubcloud_link)
-      }));
-    } catch (error) {
-      ctx.log.debug(`[1cinevood] Pack API failed for ${packLink}: ${error.message}`);
-      return [];
-    }
-  });
-  return _getEpisodesFromApi.apply(this, arguments);
-}
-function resolveCinevoodLink(_x55, _x56, _x57) {
-  return _resolveCinevoodLink.apply(this, arguments);
-}
-function _resolveCinevoodLink() {
-  _resolveCinevoodLink = _asyncToGenerator(function* (link, requester, ctx) {
-    if (/hubcloud|\/drive\//i.test(link)) return link;
-    if (/oxxfile/i.test(link)) {
-      try {
-        const u = new URL(link);
-        const id = u.pathname.split("/").filter(Boolean).pop() || "";
-        const apiUrl = new URL(`/api/s/${id}/hubcloud`, u.origin);
-        const res = yield ctx.xhr.fetch(apiUrl, {
-          method: "GET",
-          attachUserAgent: true,
-          clean: true,
-          headers: {
-            ...HEADERS
-          },
-          redirect: "follow"
-        }, requester);
-        if (res.url && /hubcloud/i.test(res.url)) return res.url;
-        const text = yield res.text().catch(() => "");
-        const m2 = text.match(/https?:\/\/[^"'\s]*hubcloud[^"'\s]*/i);
-        return m2?.[0] || null;
-      } catch (error) {
-        ctx.log.debug(`[1cinevood] oxxfile resolution failed for ${link}: ${error.message}`);
-        return null;
-      }
-    }
-    return null;
-  });
-  return _resolveCinevoodLink.apply(this, arguments);
-}
-function episodeNumberOf(title) {
-  const m2 = title.match(/s\d{1,2}\s*e\s*(\d{1,3})/i) || title.match(/episodes?\s*:?\s*(\d+)/i) || title.match(/\be(\d+)\b/i);
-  return m2 ? Number(m2[1]) : null;
-}
-
-// providers/media/multi/1cinevood/index.ts
-var index_default = defineProviderModule(PROVIDER, manifest_default.providers["1cinevood"], {
+var index_default = defineProviderModule(PROVIDER, manifest_default.providers["rgshows"], {
   getStreams
 });

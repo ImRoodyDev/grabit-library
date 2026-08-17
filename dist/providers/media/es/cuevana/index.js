@@ -13581,6 +13581,39 @@ var manifest_default = {
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/subtitle"
+    },
+    vixsrc: {
+      name: "VixSrc",
+      version: "1.0.0",
+      active: true,
+      language: ["en", "it"],
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/multi"
+    },
+    rgshows: {
+      name: "RgShows",
+      version: "1.0.0",
+      active: false,
+      language: "en",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/multi"
+    },
+    homecine: {
+      name: "HomeCine",
+      version: "1.0.0",
+      active: true,
+      language: "es",
+      type: "media",
+      env: "universal",
+      supportedMediaTypes: ["movie", "serie"],
+      priority: 100,
+      dir: "providers/media/es"
     }
   }
 };
