@@ -12575,18 +12575,18 @@ function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
       var _ref4 = _asyncToGenerator(function* (source) {
-        const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
+        if (source.lazy) return source;
+        const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
         const {
           ok
         } = yield context.xhr.status(url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
       });
-      return function (_x21) {
+      return function (_x27) {
         return _ref4.apply(this, arguments);
       };
     }()));
@@ -12606,12 +12606,11 @@ function _validateSubtitleSources() {
           ok
         } = yield context.xhr.status(source.url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
       });
-      return function (_x22) {
+      return function (_x28) {
         return _ref5.apply(this, arguments);
       };
     }()));
@@ -13052,7 +13051,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13085,7 +13084,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13184,7 +13183,7 @@ var manifest_default = {
       active: false,
       language: ["es"],
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/es"
@@ -13297,14 +13296,14 @@ function _getStreams() {
       ctx.log.warn("[xpass2] ctx.xhr reached the source list but found no playable stream.");
       return [];
     }
-    ctx.log.info("[xpass2] Cloudflare gate on the HTTP path \u2014 falling back to ctx.puppeteer.");
-    const viaBrowser = yield resolveViaPuppeteer(embedUrl, requester, ctx);
-    if (!viaBrowser.length) {
-      ctx.log.warn("[xpass2] No playable stream after the puppeteer fallback.");
+    ctx.log.info("[xpass2] Cloudflare gate on the HTTP path, solving the challenge.");
+    const viaSolve = yield resolveViaSolve(embedUrl, base, requester, ctx);
+    if (!viaSolve.length) {
+      ctx.log.warn("[xpass2] No playable stream after the challenge solve.");
       return [];
     }
-    ctx.log.info(`[xpass2] Resolved ${viaBrowser.length} HLS stream(s) via puppeteer fallback.`);
-    return toSources(viaBrowser, referer, base);
+    ctx.log.info(`[xpass2] Resolved ${viaSolve.length} HLS stream(s) via challenge solve.`);
+    return toSources(viaSolve, referer, base);
   });
   return _getStreams.apply(this, arguments);
 }
@@ -13345,61 +13344,7 @@ function _resolveViaXhr() {
           cookie
         } : {})
       };
-      const listRes = yield ctx.xhr.fetch(new URL(dataUrl, base), {
-        method: "GET",
-        attachUserAgent: true,
-        clean: true,
-        headers: apiHeaders
-      }, requester);
-      const listText = yield listRes.text();
-      if (isCloudflare(listText)) return {
-        cfBlocked: true
-      };
-      let sources;
-      try {
-        sources = JSON.parse(listText);
-      } catch {
-        ctx.log.debug(`[xpass2] Source list not JSON (status ${listRes.status}): ${listText.slice(0, 80)}`);
-        return {
-          streams: [],
-          cfBlocked: false
-        };
-      }
-      if (!Array.isArray(sources)) return {
-        streams: [],
-        cfBlocked: false
-      };
-      const streams = [];
-      const seen = /* @__PURE__ */new Set();
-      for (const s of sources.slice(0, MAX_SOURCES)) {
-        if (!s?.url) continue;
-        try {
-          const pjRes = yield ctx.xhr.fetch(new URL(s.url, base), {
-            method: "GET",
-            attachUserAgent: true,
-            clean: true,
-            headers: apiHeaders
-          }, requester);
-          const pjText = yield pjRes.text();
-          if (isCloudflare(pjText)) return {
-            cfBlocked: true
-          };
-          const files = [];
-          findFiles(JSON.parse(pjText), files);
-          for (const f of files) {
-            if (seen.has(f.file)) continue;
-            seen.add(f.file);
-            streams.push({
-              name: f.label || s.name || "Xpass",
-              file: f.file
-            });
-          }
-        } catch {}
-      }
-      return {
-        streams,
-        cfBlocked: false
-      };
+      return resolveFromDataUrl(dataUrl, base, apiHeaders, requester, ctx);
     } catch (error) {
       ctx.log.debug(`[xpass2] HTTP path errored (${error.message}); treating as gated.`);
       return {
@@ -13409,73 +13354,97 @@ function _resolveViaXhr() {
   });
   return _resolveViaXhr.apply(this, arguments);
 }
-function resolveViaPuppeteer(_x18, _x19, _x20) {
-  return _resolveViaPuppeteer.apply(this, arguments);
+function resolveFromDataUrl(_x18, _x19, _x20, _x21, _x22) {
+  return _resolveFromDataUrl.apply(this, arguments);
 }
-function _resolveViaPuppeteer() {
-  _resolveViaPuppeteer = _asyncToGenerator(function* (embedUrl, requester, ctx) {
-    let session = null;
+function _resolveFromDataUrl() {
+  _resolveFromDataUrl = _asyncToGenerator(function* (dataUrl, base, apiHeaders, requester, ctx) {
+    const listRes = yield ctx.xhr.fetch(new URL(dataUrl, base), {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      headers: apiHeaders
+    }, requester);
+    const listText = yield listRes.text();
+    if (isCloudflare(listText)) return {
+      cfBlocked: true
+    };
+    let sources;
     try {
-      session = yield ctx.puppeteer.launch(embedUrl, {
-        requester,
-        browsingOptions: {
-          ignoreError: true,
-          loadCriteria: "networkidle2"
-        }
-      });
-      const result = yield session.page.evaluate(/*#__PURE__*/function () {
-        var _ref6 = _asyncToGenerator(function* (maxSources) {
-          const html = document.documentElement.outerHTML;
-          const dataUrl = (html.match(/var\s+dataUrl\s*=\s*["']([^"']+)["']/) || [])[1];
-          if (!dataUrl) return {
-            streams: []
-          };
-          const list = yield (yield fetch(dataUrl)).json();
-          const sources = Array.isArray(list) ? list : [];
-          const findFiles2 = (v, out) => {
-            if (Array.isArray(v)) return v.forEach(x => findFiles2(x, out));
-            if (v && typeof v === "object") {
-              if (typeof v.file === "string" && /^https?:\/\//.test(v.file)) out.push({
-                file: v.file,
-                label: v.label
-              });
-              for (const k of Object.keys(v)) if (k !== "file") findFiles2(v[k], out);
-            }
-          };
-          const streams = [];
-          const seen = /* @__PURE__ */new Set();
-          for (const s of sources.slice(0, maxSources)) {
-            if (!s?.url) continue;
-            try {
-              const files = [];
-              findFiles2(yield (yield fetch(s.url)).json(), files);
-              for (const f of files) {
-                if (seen.has(f.file)) continue;
-                seen.add(f.file);
-                streams.push({
-                  name: f.label || s.name || "Xpass",
-                  file: f.file
-                });
-              }
-            } catch {}
-          }
-          return {
-            streams
-          };
-        });
-        return function (_x23) {
-          return _ref6.apply(this, arguments);
-        };
-      }(), MAX_SOURCES);
-      return result.streams || [];
-    } catch (error) {
-      ctx.log.error(`[xpass2] Puppeteer fallback failed: ${error.message}`);
-      return [];
-    } finally {
-      yield session?.page.close().catch(() => null);
+      sources = JSON.parse(listText);
+    } catch {
+      ctx.log.debug(`[xpass2] Source list not JSON (status ${listRes.status}): ${listText.slice(0, 80)}`);
+      return {
+        streams: [],
+        cfBlocked: false
+      };
     }
+    if (!Array.isArray(sources)) return {
+      streams: [],
+      cfBlocked: false
+    };
+    const streams = [];
+    const seen = /* @__PURE__ */new Set();
+    for (const s of sources.slice(0, MAX_SOURCES)) {
+      if (!s?.url) continue;
+      try {
+        const pjRes = yield ctx.xhr.fetch(new URL(s.url, base), {
+          method: "GET",
+          attachUserAgent: true,
+          clean: true,
+          headers: apiHeaders
+        }, requester);
+        const pjText = yield pjRes.text();
+        if (isCloudflare(pjText)) return {
+          cfBlocked: true
+        };
+        const files = [];
+        findFiles(JSON.parse(pjText), files);
+        for (const f of files) {
+          if (seen.has(f.file)) continue;
+          seen.add(f.file);
+          streams.push({
+            name: f.label || s.name || "Xpass",
+            file: f.file
+          });
+        }
+      } catch {}
+    }
+    return {
+      streams,
+      cfBlocked: false
+    };
   });
-  return _resolveViaPuppeteer.apply(this, arguments);
+  return _resolveFromDataUrl.apply(this, arguments);
+}
+function resolveViaSolve(_x23, _x24, _x25, _x26) {
+  return _resolveViaSolve.apply(this, arguments);
+}
+function _resolveViaSolve() {
+  _resolveViaSolve = _asyncToGenerator(function* (embedUrl, base, requester, ctx) {
+    const solved = yield ctx.solveChallenge(embedUrl, requester, {
+      waitForCookie: "cf_clearance"
+    });
+    const dataUrl = solved.html.match(/var\s+dataUrl\s*=\s*["']([^"']+)["']/)?.[1];
+    if (!dataUrl) {
+      ctx.log.debug("[xpass2] No dataUrl in the solved embed HTML.");
+      return [];
+    }
+    const apiHeaders = {
+      Referer: embedUrl.href,
+      "accept-language": "en-US,en;q=0.9",
+      "x-requested-with": "XMLHttpRequest",
+      ...(solved.cookies ? {
+        cookie: solved.cookies
+      } : {}),
+      ...(solved.userAgent ? {
+        "User-Agent": solved.userAgent
+      } : {})
+    };
+    const res = yield resolveFromDataUrl(dataUrl, base, apiHeaders, requester, ctx);
+    return res.streams ?? [];
+  });
+  return _resolveViaSolve.apply(this, arguments);
 }
 function isCloudflare(html) {
   return /<title>\s*just a moment|__cf_chl_(?:f_)?tk|cf-browser-verification|cf_chl_opt/i.test(html);

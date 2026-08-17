@@ -12554,13 +12554,13 @@ function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
       var _ref4 = _asyncToGenerator(function* (source) {
-        const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
+        if (source.lazy) return source;
+        const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
         const {
           ok
         } = yield context.xhr.status(url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -12585,7 +12585,6 @@ function _validateSubtitleSources() {
           ok
         } = yield context.xhr.status(source.url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -13061,7 +13060,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13094,7 +13093,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13193,7 +13192,7 @@ var manifest_default = {
       active: false,
       language: ["es"],
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/es"

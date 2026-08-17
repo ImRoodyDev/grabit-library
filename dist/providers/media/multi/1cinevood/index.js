@@ -12356,15 +12356,6 @@ var DebugLogger = /*#__PURE__*/function () {
 var _Logger = new DebugLogger((process.env?.NODE_ENV ?? process.env?.ENV) !== "production", "GRABIT-ENGINE");
 
 // node_modules/grabit-engine/dist/esm/src/utils/standard.js
-function delay(_x) {
-  return _delay.apply(this, arguments);
-}
-function _delay() {
-  _delay = _asyncToGenerator(function* (ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  });
-  return _delay.apply(this, arguments);
-}
 function normalizeHeaders(headers) {
   const seen = /* @__PURE__ */new Map();
   const result = {};
@@ -12497,7 +12488,7 @@ function createModuleWorkers(provider, manifest, workers) {
           throw error;
         }
       });
-      return function (_x2, _x3) {
+      return function (_x, _x2) {
         return _ref.apply(this, arguments);
       };
     }()) : void 0,
@@ -12530,7 +12521,7 @@ function createModuleWorkers(provider, manifest, workers) {
           throw error;
         }
       });
-      return function (_x4, _x5) {
+      return function (_x3, _x4) {
         return _ref2.apply(this, arguments);
       };
     }()) : void 0,
@@ -12555,31 +12546,31 @@ function createModuleWorkers(provider, manifest, workers) {
           scheme: provider.config.scheme
         };
       });
-      return function (_x6, _x7, _x8) {
+      return function (_x5, _x6, _x7) {
         return _ref3.apply(this, arguments);
       };
     }()) : void 0
   };
 }
-function validateMediaSources(_x9, _x0, _x1) {
+function validateMediaSources(_x8, _x9, _x0) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
       var _ref4 = _asyncToGenerator(function* (source) {
-        const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
+        if (source.lazy) return source;
+        const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
         const {
           ok
         } = yield context.xhr.status(url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
       });
-      return function (_x59) {
+      return function (_x58) {
         return _ref4.apply(this, arguments);
       };
     }()));
@@ -12587,7 +12578,7 @@ function _validateMediaSources() {
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x10, _x11, _x12) {
+function validateSubtitleSources(_x1, _x10, _x11) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
@@ -12599,12 +12590,11 @@ function _validateSubtitleSources() {
           ok
         } = yield context.xhr.status(source.url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
       });
-      return function (_x60) {
+      return function (_x59) {
         return _ref5.apply(this, arguments);
       };
     }()));
@@ -13094,7 +13084,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13127,7 +13117,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13226,7 +13216,7 @@ var manifest_default = {
       active: false,
       language: ["es"],
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/es"
@@ -13344,7 +13334,7 @@ function getRedirectedPixelDrainUrl(...htmlSources) {
   }
   return "";
 }
-function fetchTextWithCloudflareFallback(_x13, _x14, _x15, _x16, _x17) {
+function fetchTextWithCloudflareFallback(_x12, _x13, _x14, _x15, _x16) {
   return _fetchTextWithCloudflareFallback.apply(this, arguments);
 }
 function _fetchTextWithCloudflareFallback() {
@@ -13371,32 +13361,20 @@ function _fetchTextWithCloudflareFallback() {
     } catch (error) {
       ctx.log.warn(`[hubcloud] xhr fetch failed for ${target.href} (${error.message}), trying browser session.`);
     }
-    let session = null;
     try {
-      session = yield ctx.puppeteer.launch(target, {
-        requester,
-        browsingOptions: {
-          ignoreError: true,
-          loadCriteria: "networkidle0"
-        }
+      const solved = yield ctx.solveChallenge(target, requester, {
+        waitForCookie: "cf_clearance"
       });
-      const html = yield session.page.content();
-      try {
-        const cookies = yield session.page.cookies();
-        const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join("; ");
-        if (cookieStr) cookieJar.cookie = cookieStr;
-      } catch {}
-      return html;
+      if (solved.cookies) cookieJar.cookie = solved.cookies;
+      return solved.html;
     } catch (error) {
-      ctx.log.error(`[hubcloud] Browser fallback failed for ${target.href}: ${error.message}`);
+      ctx.log.error(`[hubcloud] Challenge solve failed for ${target.href}: ${error.message}`);
       return null;
-    } finally {
-      yield session?.page.close().catch(() => null);
     }
   });
   return _fetchTextWithCloudflareFallback.apply(this, arguments);
 }
-function extractHubcloudStreams(_x18, _x19, _x20, _x21) {
+function extractHubcloudStreams(_x17, _x18, _x19, _x20) {
   return _extractHubcloudStreams.apply(this, arguments);
 }
 function _extractHubcloudStreams() {
@@ -13416,7 +13394,7 @@ function _extractHubcloudStreams() {
   });
   return _extractHubcloudStreams.apply(this, arguments);
 }
-function handleSearchRecover(_x22, _x23, _x24, _x25, _x26, _x27) {
+function handleSearchRecover(_x21, _x22, _x23, _x24, _x25, _x26) {
   return _handleSearchRecover.apply(this, arguments);
 }
 function _handleSearchRecover() {
@@ -13480,7 +13458,7 @@ function _handleSearchRecover() {
   });
   return _handleSearchRecover.apply(this, arguments);
 }
-function resolveDrivePage(_x28, _x29, _x30, _x31, _x32, _x33) {
+function resolveDrivePage(_x27, _x28, _x29, _x30, _x31, _x32) {
   return _resolveDrivePage.apply(this, arguments);
 }
 function _resolveDrivePage() {
@@ -13573,7 +13551,7 @@ function _resolveDrivePage() {
   });
   return _resolveDrivePage.apply(this, arguments);
 }
-function resolveNestedHubcloud(_x34, _x35, _x36, _x37, _x38) {
+function resolveNestedHubcloud(_x33, _x34, _x35, _x36, _x37) {
   return _resolveNestedHubcloud.apply(this, arguments);
 }
 function _resolveNestedHubcloud() {
@@ -13667,50 +13645,35 @@ function pickBestPost(posts, media, minScore = 45) {
 var HEADERS = {};
 var MAX_CANDIDATES = 3;
 var POST_SELECTORS = [".pstr_box", "article", ".result-item", ".post", ".item", ".thumbnail", ".latest-movies", ".movie-item", ".ml-item", ".cv-post"].join(",");
-function loadPageWithCF(_x39, _x40, _x41, _x42) {
+function loadPageWithCF(_x38, _x39, _x40, _x41) {
   return _loadPageWithCF.apply(this, arguments);
 }
 function _loadPageWithCF() {
-  _loadPageWithCF = _asyncToGenerator(function* (url, requester, ctx, pageOpt, loadCriteria = "networkidle0") {
+  _loadPageWithCF = _asyncToGenerator(function* (url, requester, ctx, pageOpt) {
     try {
       const {
-        $
+        $: $2
       } = yield ctx.cheerio.load(url, pageOpt, ctx.xhr);
-      const title = $("title").text();
+      const title = $2("title").text();
       const challenged = /just a moment|attention required|checking your browser|cf-browser-verification/i.test(title);
-      if (!challenged && $("body").text().trim().length > 200) return $;
-      ctx.log.warn(`[1cinevood] Cloudflare challenge on ${url.href}, using browser session.`);
+      if (!challenged && $2("body").text().trim().length > 200) return $2;
+      ctx.log.warn(`[1cinevood] Cloudflare challenge on ${url.href}, solving.`);
     } catch (error) {
-      ctx.log.warn(`[1cinevood] Direct load failed for ${url.href} (${error.message}), using browser.`);
+      ctx.log.warn(`[1cinevood] Direct load failed for ${url.href} (${error.message}), solving.`);
     }
     const CHALLENGE_RE = /just a moment|attention required|checking your browser|cf-browser-verification/i;
-    let session = null;
-    try {
-      session = yield ctx.puppeteer.launch(url, {
-        requester,
-        browsingOptions: {
-          ignoreError: true,
-          loadCriteria
-        }
-      });
-      yield session.page.waitForFunction(() => !/just a moment|attention required|checking your browser|cf-browser-verification/i.test(document.title || ""), {
-        timeout: 2e4,
-        polling: 500
-      }).catch(() => null);
-      yield delay(1200);
-      const html = yield session.page.content();
-      const $ = ctx.cheerio.$load(html);
-      if (CHALLENGE_RE.test($("title").text())) {
-        ctx.log.warn(`[1cinevood] Cloudflare still challenging ${url.href} after wait; may yield no results.`);
-      }
-      return $;
-    } finally {
-      yield session?.page.close().catch(() => null);
+    const solved = yield ctx.solveChallenge(url, requester, {
+      waitForCookie: "cf_clearance"
+    });
+    const $ = ctx.cheerio.$load(solved.html);
+    if (CHALLENGE_RE.test($("title").text())) {
+      ctx.log.warn(`[1cinevood] Cloudflare still challenging ${url.href} after solve; may yield no results.`);
     }
+    return $;
   });
   return _loadPageWithCF.apply(this, arguments);
 }
-function getStreams(_x43, _x44) {
+function getStreams(_x42, _x43) {
   return _getStreams.apply(this, arguments);
 }
 function _getStreams() {
@@ -13769,7 +13732,7 @@ function _getStreams() {
   });
   return _getStreams.apply(this, arguments);
 }
-function searchPosts(_x45, _x46, _x47, _x48) {
+function searchPosts(_x44, _x45, _x46, _x47) {
   return _searchPosts.apply(this, arguments);
 }
 function _searchPosts() {
@@ -13847,13 +13810,13 @@ function parseAnchorFallback($, baseUrl) {
 function cleanCardTitle(raw) {
   return raw.replace(/\[.*?\]/g, "").replace(/\s{2,}/g, " ").trim();
 }
-function getCandidateLinks(_x49, _x50, _x51, _x52) {
+function getCandidateLinks(_x48, _x49, _x50, _x51) {
   return _getCandidateLinks.apply(this, arguments);
 }
 function _getCandidateLinks() {
   _getCandidateLinks = _asyncToGenerator(function* (link, requester, ctx, pageOpt) {
     const url = new URL(link, `${PROVIDER.config.baseUrl}/`);
-    const $ = yield loadPageWithCF(url, requester, ctx, pageOpt, "networkidle2");
+    const $ = yield loadPageWithCF(url, requester, ctx, pageOpt);
     const container = $(".entry-content, .post-inner").first().length ? $(".entry-content, .post-inner").first() : $("body");
     const media = requester.media;
     const candidates = [];
@@ -13916,7 +13879,7 @@ function _getCandidateLinks() {
   });
   return _getCandidateLinks.apply(this, arguments);
 }
-function getEpisodesFromApi(_x53, _x54, _x55) {
+function getEpisodesFromApi(_x52, _x53, _x54) {
   return _getEpisodesFromApi.apply(this, arguments);
 }
 function _getEpisodesFromApi() {
@@ -13945,7 +13908,7 @@ function _getEpisodesFromApi() {
   });
   return _getEpisodesFromApi.apply(this, arguments);
 }
-function resolveCinevoodLink(_x56, _x57, _x58) {
+function resolveCinevoodLink(_x55, _x56, _x57) {
   return _resolveCinevoodLink.apply(this, arguments);
 }
 function _resolveCinevoodLink() {

@@ -12729,13 +12729,13 @@ function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
       var _ref4 = _asyncToGenerator(function* (source) {
-        const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
+        if (source.lazy) return source;
+        const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
         const {
           ok
         } = yield context.xhr.status(url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -12760,7 +12760,6 @@ function _validateSubtitleSources() {
           ok
         } = yield context.xhr.status(source.url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -13326,7 +13325,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13359,7 +13358,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13458,7 +13457,7 @@ var manifest_default = {
       active: false,
       language: ["es"],
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/es"
@@ -13571,8 +13570,7 @@ function _extractStreamwishStreams() {
         "sec-fetch-dest": "iframe",
         "sec-fetch-mode": "navigate",
         "sec-fetch-site": "cross-site",
-        "upgrade-insecure-requests": "1",
-        cookie: void 0
+        "upgrade-insecure-requests": "1"
       }
     };
     const page = yield ctx.cheerio.load(embedURL, opts, ctx.xhr);
@@ -13650,8 +13648,6 @@ function _extractDoodstreamStreams() {
         "sec-fetch-storage-access": "active",
         "sec-fetch-user": "?1",
         "upgrade-insecure-requests": "1",
-        cookie: void 0,
-        // Ensure cookies are not sent with the request
         referer: requestOpts.extraHeaders?.referer ?? embedURL.origin
         // Ensure referer is set for the initial page load
       }
@@ -13738,9 +13734,7 @@ function _extractFilemoonStreams() {
         "sec-fetch-mode": "navigate",
         "sec-fetch-site": "cross-site",
         "sec-fetch-storage-access": "active",
-        "upgrade-insecure-requests": "1",
-        cookie: void 0
-        // Ensure cookies are not sent with the request
+        "upgrade-insecure-requests": "1"
       }
     };
     const page = yield ctx.cheerio.load(embedURL, opts, ctx.xhr);
@@ -13796,9 +13790,7 @@ function _extractMixdropStream() {
       "sec-fetch-site": "cross-site",
       "sec-fetch-storage-access": "active",
       "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      cookie: void 0
-      // Ensure cookies are not sent with the request
+      "upgrade-insecure-requests": "1"
     };
     const iframeOpts = {
       ...requestOpts,
@@ -13859,9 +13851,7 @@ function _extractSupervideoStreams() {
         "Sec-Fetch-Site": "none",
         Priority: "u=0, i",
         Pragma: "no-cache",
-        "Cache-Control": "no-cache",
-        cookie: void 0
-        // Ensure cookies are not sent with the request
+        "Cache-Control": "no-cache"
       }
     };
     const page = yield ctx.cheerio.load(embedURL, opts, ctx.xhr);
@@ -13925,9 +13915,7 @@ function _extractDroploadStreams() {
         "sec-fetch-mode": "navigate",
         "sec-fetch-site": "cross-site",
         "sec-fetch-storage-access": "active",
-        "upgrade-insecure-requests": "1",
-        cookie: void 0
-        // Ensure cookies are not sent with the request
+        "upgrade-insecure-requests": "1"
       }
     };
     const page = yield ctx.cheerio.load(resourceURL, opts, ctx.xhr);
@@ -14012,118 +14000,98 @@ var SUPPORTED = /filemoon|moon|streamwish|filelions|lions|swish|wish|mixdrop|doo
 var MAX_EMBEDS = 5;
 function getStreams(_x40, _x41) {
   return _getStreams.apply(this, arguments);
-} // providers/media/en/primesrc/index.ts
+}
 function _getStreams() {
   _getStreams = _asyncToGenerator(function* (requester, ctx) {
     if (requester.media.type === "channel") return [];
-    const media = requester.media;
     const base = new URL(PROVIDER.config.baseUrl);
     const apiPath = (() => {
       const u = PROVIDER.createResourceURL(requester);
       return u.pathname + u.search;
     })();
-    let session = null;
-    try {
-      session = yield ctx.puppeteer.launch(base, {
-        requester,
-        browsingOptions: {
-          ignoreError: true,
-          loadCriteria: "networkidle2"
-        }
-      });
-      const page = session.page;
-      const resolved = yield page.evaluate(/*#__PURE__*/function () {
-        var _ref6 = _asyncToGenerator(function* (apiPath2, supportedSrc, maxEmbeds) {
-          const SUPPORTED2 = new RegExp(supportedSrc, "i");
-          const findUrl = v => {
-            if (typeof v === "string") return /^https?:\/\//.test(v) ? v : null;
-            if (v && typeof v === "object") for (const k of Object.keys(v)) {
-              const u = findUrl(v[k]);
-              if (u) return u;
-            }
-            return null;
-          };
-          const sRes = yield fetch(apiPath2, {
-            headers: {
-              "x-requested-with": "XMLHttpRequest"
-            }
-          });
-          if (!sRes.ok) return {
-            error: `servers ${sRes.status}`
-          };
-          const data = yield sRes.json();
-          const servers = Array.isArray(data?.servers) ? data.servers : [];
-          const seenHost = /* @__PURE__ */new Set();
-          const picks = servers.filter(s => {
-            if (!s?.key || !SUPPORTED2.test(s.name || "")) return false;
-            const h2 = (s.name || "").toLowerCase();
-            if (seenHost.has(h2)) return false;
-            seenHost.add(h2);
-            return true;
-          });
-          const embeds = [];
-          let lastStatus = 0;
-          for (const s of picks.slice(0, maxEmbeds)) {
-            try {
-              const lRes = yield fetch(`/api/v1/l?key=${encodeURIComponent(s.key)}`, {
-                headers: {
-                  "x-requested-with": "XMLHttpRequest"
-                }
-              });
-              lastStatus = lRes.status;
-              if (!lRes.ok) continue;
-              const link = findUrl(yield lRes.json());
-              if (link) embeds.push({
-                name: s.name,
-                url: link
-              });
-            } catch {}
-          }
-          return {
-            embeds,
-            serverCount: servers.length,
-            lastStatus
-          };
-        });
-        return function (_x44, _x45, _x46) {
-          return _ref6.apply(this, arguments);
-        };
-      }(), apiPath, SUPPORTED.source, MAX_EMBEDS);
-      if (resolved.error) {
-        ctx.log.warn(`[primesrc] Server list failed: ${resolved.error}`);
-        return [];
-      }
-      if (!resolved.embeds?.length) {
-        ctx.log.warn(`[primesrc] ${resolved.serverCount ?? 0} server(s) but no embed resolved (last /api/v1/l status ${resolved.lastStatus}).`);
-        return [];
-      }
-      ctx.log.info(`[primesrc] Resolved ${resolved.embeds.length} embed(s): ${resolved.embeds.map(e => e.name).join(", ")}`);
-      const results = [];
-      const opts = {
-        ...requester,
-        extraHeaders: {
-          Referer: base.origin + "/"
-        }
-      };
-      for (const embed of resolved.embeds) {
-        try {
-          const sources = yield dispatchEmbed(embed.url, opts, ctx, "en");
-          if (sources.length) results.push(...sources);
-        } catch (error) {
-          ctx.log.debug(`[primesrc] Extractor failed for ${embed.url}: ${error.message}`);
-        }
-      }
-      ctx.log.info(`[primesrc] Returning ${results.length} source(s).`);
-      return results;
-    } catch (error) {
-      ctx.log.error(`[primesrc] Browser flow failed: ${error.message}`);
+    const solved = yield ctx.solveChallenge(base, requester, {
+      waitForCookie: "cf_clearance"
+    });
+    const apiHeaders = {
+      Referer: base.origin + "/",
+      "x-requested-with": "XMLHttpRequest",
+      ...(solved.cookies ? {
+        cookie: solved.cookies
+      } : {}),
+      ...(solved.userAgent ? {
+        "User-Agent": solved.userAgent
+      } : {})
+    };
+    const data = yield ctx.xhr.fetchResponse(new URL(apiPath, base), {
+      method: "GET",
+      clean: true,
+      headers: apiHeaders
+    }, requester).catch(error => {
+      ctx.log.warn(`[primesrc] Server list failed: ${error.message}`);
+      return null;
+    });
+    const servers = Array.isArray(data?.servers) ? data.servers : [];
+    if (!servers.length) {
+      ctx.log.warn("[primesrc] No servers returned by the API.");
       return [];
-    } finally {
-      yield session?.page.close().catch(() => null);
     }
+    const seenHost = /* @__PURE__ */new Set();
+    const picks = servers.filter(s => {
+      if (!s?.key || !SUPPORTED.test(s.name || "")) return false;
+      const h2 = (s.name || "").toLowerCase();
+      if (seenHost.has(h2)) return false;
+      seenHost.add(h2);
+      return true;
+    });
+    const embeds = [];
+    for (const s of picks.slice(0, MAX_EMBEDS)) {
+      try {
+        const link = findUrl(yield ctx.xhr.fetchResponse(new URL(`/api/v1/l?key=${encodeURIComponent(s.key)}`, base), {
+          method: "GET",
+          clean: true,
+          headers: apiHeaders
+        }, requester));
+        if (link) embeds.push({
+          name: s.name,
+          url: link
+        });
+      } catch {}
+    }
+    if (!embeds.length) {
+      ctx.log.warn(`[primesrc] ${servers.length} server(s) but no embed resolved.`);
+      return [];
+    }
+    ctx.log.info(`[primesrc] Resolved ${embeds.length} embed(s): ${embeds.map(e => e.name).join(", ")}`);
+    const results = [];
+    const opts = {
+      ...requester,
+      extraHeaders: {
+        Referer: base.origin + "/"
+      }
+    };
+    for (const embed of embeds) {
+      try {
+        const sources = yield dispatchEmbed(embed.url, opts, ctx, "en");
+        if (sources.length) results.push(...sources);
+      } catch (error) {
+        ctx.log.debug(`[primesrc] Extractor failed for ${embed.url}: ${error.message}`);
+      }
+    }
+    ctx.log.info(`[primesrc] Returning ${results.length} source(s).`);
+    return results;
   });
   return _getStreams.apply(this, arguments);
 }
+function findUrl(v) {
+  if (typeof v === "string") return /^https?:\/\//.test(v) ? v : null;
+  if (v && typeof v === "object") for (const k of Object.keys(v)) {
+    const u = findUrl(v[k]);
+    if (u) return u;
+  }
+  return null;
+}
+
+// providers/media/en/primesrc/index.ts
 var index_default = defineProviderModule(PROVIDER, manifest_default.providers["primesrc"], {
   getStreams
 });

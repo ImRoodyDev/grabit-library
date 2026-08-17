@@ -15,16 +15,13 @@ export async function getSubtitles(requester: ScrapeRequester, ctx: ProviderCont
 
 	if (!Array.isArray(data) || data.length === 0) return [];
 
-	return [
-		{
-			fileName: 'subtitles.srt',
-			format: 'srt',
-			sources: data.map((sub) => ({
-				language: sub.language,
-				languageName: sub.languageName,
-				url: sub.url,
-			})),
-			xhr: { flags: [], headers: {} },
-		},
-	];
+	// One InternalSubtitleSource per subtitle (flat shape: url/language/languageName).
+	return data.map((sub) => ({
+		fileName: 'subtitles.srt',
+		format: 'srt' as const,
+		language: sub.language,
+		languageName: sub.languageName,
+		url: sub.url,
+		xhr: { flags: [], headers: {} },
+	}));
 }

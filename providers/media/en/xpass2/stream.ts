@@ -17,7 +17,8 @@ type Stream = { name: string; file: string };
  * The embed page server-renders the signed source-list URL (`var dataUrl="/data/…&sig=…"`),
  * so we can resolve everything over plain `ctx.xhr`:
  *   embed page -> `dataUrl` -> signed source list -> each `playlist.json` -> HLS `file`.
- * Only if `ctx.xhr` hits a Cloudflare gate do we fall back to `ctx.puppeteer`.
+ * Only if `ctx.xhr` hits a Cloudflare gate do we solve the challenge and retry over `ctx.xhr`
+ * with the earned cookies, so the provider stays universal (no direct puppeteer).
  */
 export async function getStreams(requester: ScrapeRequester, ctx: ProviderContext): Promise<InternalMediaSource[]> {
 	if (requester.media.type === 'channel') return [];
@@ -36,15 +37,15 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 		return [];
 	}
 
-	// --- 2. Cloudflare gate -> puppeteer fallback -----------------------------
-	ctx.log.info('[xpass2] Cloudflare gate on the HTTP path — falling back to ctx.puppeteer.');
-	const viaBrowser = await resolveViaPuppeteer(embedUrl, requester, ctx);
-	if (!viaBrowser.length) {
-		ctx.log.warn('[xpass2] No playable stream after the puppeteer fallback.');
+	// --- 2. Cloudflare gate -> solve the challenge, then resolve over ctx.xhr ---
+	ctx.log.info('[xpass2] Cloudflare gate on the HTTP path, solving the challenge.');
+	const viaSolve = await resolveViaSolve(embedUrl, base, requester, ctx);
+	if (!viaSolve.length) {
+		ctx.log.warn('[xpass2] No playable stream after the challenge solve.');
 		return [];
 	}
-	ctx.log.info(`[xpass2] Resolved ${viaBrowser.length} HLS stream(s) via puppeteer fallback.`);
-	return toSources(viaBrowser, referer, base);
+	ctx.log.info(`[xpass2] Resolved ${viaSolve.length} HLS stream(s) via challenge solve.`);
+	return toSources(viaSolve, referer, base);
 }
 
 // ─── HTTP path ────────────────────────────────────────────────────────────────
@@ -82,102 +83,86 @@ async function resolveViaXhr(
 			...(cookie ? { cookie } : {}),
 		};
 
-		// Signed source list.
-		const listRes = await ctx.xhr.fetch(
-			new URL(dataUrl, base),
-			{ method: 'GET', attachUserAgent: true, clean: true, headers: apiHeaders },
-			requester,
-		);
-		const listText = await listRes.text();
-		if (isCloudflare(listText)) return { cfBlocked: true };
-		let sources: any[];
-		try {
-			sources = JSON.parse(listText);
-		} catch {
-			ctx.log.debug(`[xpass2] Source list not JSON (status ${listRes.status}): ${listText.slice(0, 80)}`);
-			return { streams: [], cfBlocked: false };
-		}
-		if (!Array.isArray(sources)) return { streams: [], cfBlocked: false };
-
-		// Each source -> its playlist.json -> HLS files.
-		const streams: Stream[] = [];
-		const seen = new Set<string>();
-		for (const s of sources.slice(0, MAX_SOURCES)) {
-			if (!s?.url) continue;
-			try {
-				const pjRes = await ctx.xhr.fetch(
-					new URL(s.url, base),
-					{ method: 'GET', attachUserAgent: true, clean: true, headers: apiHeaders },
-					requester,
-				);
-				const pjText = await pjRes.text();
-				if (isCloudflare(pjText)) return { cfBlocked: true };
-				const files: { file: string; label?: string }[] = [];
-				findFiles(JSON.parse(pjText), files);
-				for (const f of files) {
-					if (seen.has(f.file)) continue;
-					seen.add(f.file);
-					streams.push({ name: f.label || s.name || 'Xpass', file: f.file });
-				}
-			} catch {
-				/* skip a bad source */
-			}
-		}
-		return { streams, cfBlocked: false };
+		// Signed source list -> each playlist.json -> HLS files.
+		return resolveFromDataUrl(dataUrl, base, apiHeaders, requester, ctx);
 	} catch (error) {
-		// A hard network/parse failure here is most likely the CF edge — let puppeteer try.
+		// A hard network/parse failure here is most likely the CF edge, let the solver try.
 		ctx.log.debug(`[xpass2] HTTP path errored (${(error as Error).message}); treating as gated.`);
 		return { cfBlocked: true };
 	}
 }
 
-// ─── Puppeteer fallback ─────────────────────────────────────────────────────
-
-async function resolveViaPuppeteer(embedUrl: URL, requester: ScrapeRequester, ctx: ProviderContext): Promise<Stream[]> {
-	let session: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;
+/** Resolve a signed `dataUrl` (source list) into HLS streams over ctx.xhr. Shared by the plain
+ *  HTTP path and the post-solve path; only the auth headers/cookies differ. */
+async function resolveFromDataUrl(
+	dataUrl: string,
+	base: URL,
+	apiHeaders: Record<string, string>,
+	requester: ScrapeRequester,
+	ctx: ProviderContext,
+): Promise<{ streams?: Stream[]; cfBlocked: boolean }> {
+	const listRes = await ctx.xhr.fetch(
+		new URL(dataUrl, base),
+		{ method: 'GET', attachUserAgent: true, clean: true, headers: apiHeaders },
+		requester,
+	);
+	const listText = await listRes.text();
+	if (isCloudflare(listText)) return { cfBlocked: true };
+	let sources: any[];
 	try {
-		session = await ctx.puppeteer.launch(embedUrl, {
-			requester,
-			browsingOptions: { ignoreError: true, loadCriteria: 'networkidle2' },
-		});
-		const result = (await session.page.evaluate(async (maxSources: number) => {
-			const html = document.documentElement.outerHTML;
-			const dataUrl = (html.match(/var\s+dataUrl\s*=\s*["']([^"']+)["']/) || [])[1];
-			if (!dataUrl) return { streams: [] as any[] };
-			const list = await (await fetch(dataUrl)).json();
-			const sources: any[] = Array.isArray(list) ? list : [];
-			const findFiles = (v: any, out: any[]) => {
-				if (Array.isArray(v)) return v.forEach((x) => findFiles(x, out));
-				if (v && typeof v === 'object') {
-					if (typeof v.file === 'string' && /^https?:\/\//.test(v.file)) out.push({ file: v.file, label: v.label });
-					for (const k of Object.keys(v)) if (k !== 'file') findFiles(v[k], out);
-				}
-			};
-			const streams: any[] = [];
-			const seen = new Set<string>();
-			for (const s of sources.slice(0, maxSources)) {
-				if (!s?.url) continue;
-				try {
-					const files: any[] = [];
-					findFiles(await (await fetch(s.url)).json(), files);
-					for (const f of files) {
-						if (seen.has(f.file)) continue;
-						seen.add(f.file);
-						streams.push({ name: f.label || s.name || 'Xpass', file: f.file });
-					}
-				} catch {
-					/* skip */
-				}
-			}
-			return { streams };
-		}, MAX_SOURCES)) as { streams: Stream[] };
-		return result.streams || [];
-	} catch (error) {
-		ctx.log.error(`[xpass2] Puppeteer fallback failed: ${(error as Error).message}`);
-		return [];
-	} finally {
-		await session?.page.close().catch(() => null);
+		sources = JSON.parse(listText);
+	} catch {
+		ctx.log.debug(`[xpass2] Source list not JSON (status ${listRes.status}): ${listText.slice(0, 80)}`);
+		return { streams: [], cfBlocked: false };
 	}
+	if (!Array.isArray(sources)) return { streams: [], cfBlocked: false };
+
+	// Each source -> its playlist.json -> HLS files.
+	const streams: Stream[] = [];
+	const seen = new Set<string>();
+	for (const s of sources.slice(0, MAX_SOURCES)) {
+		if (!s?.url) continue;
+		try {
+			const pjRes = await ctx.xhr.fetch(
+				new URL(s.url, base),
+				{ method: 'GET', attachUserAgent: true, clean: true, headers: apiHeaders },
+				requester,
+			);
+			const pjText = await pjRes.text();
+			if (isCloudflare(pjText)) return { cfBlocked: true };
+			const files: { file: string; label?: string }[] = [];
+			findFiles(JSON.parse(pjText), files);
+			for (const f of files) {
+				if (seen.has(f.file)) continue;
+				seen.add(f.file);
+				streams.push({ name: f.label || s.name || 'Xpass', file: f.file });
+			}
+		} catch {
+			/* skip a bad source */
+		}
+	}
+	return { streams, cfBlocked: false };
+}
+
+// ─── Cloudflare fallback: solve, then resolve over ctx.xhr with the earned cookies ──
+
+async function resolveViaSolve(embedUrl: URL, base: URL, requester: ScrapeRequester, ctx: ProviderContext): Promise<Stream[]> {
+	const solved = await ctx.solveChallenge(embedUrl, requester, { waitForCookie: 'cf_clearance' });
+	const dataUrl = solved.html.match(/var\s+dataUrl\s*=\s*["']([^"']+)["']/)?.[1];
+	if (!dataUrl) {
+		ctx.log.debug('[xpass2] No dataUrl in the solved embed HTML.');
+		return [];
+	}
+	// Reuse the cf_clearance + session cookies the solver earned for the signed endpoints.
+	const apiHeaders: Record<string, string> = {
+		Referer: embedUrl.href,
+		'accept-language': 'en-US,en;q=0.9',
+		'x-requested-with': 'XMLHttpRequest',
+		...(solved.cookies ? { cookie: solved.cookies } : {}),
+		...(solved.userAgent ? { 'User-Agent': solved.userAgent } : {}),
+	};
+	const res = await resolveFromDataUrl(dataUrl, base, apiHeaders, requester, ctx);
+	return res.streams ?? [];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

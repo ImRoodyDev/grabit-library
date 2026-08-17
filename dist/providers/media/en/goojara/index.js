@@ -12729,13 +12729,13 @@ function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
       var _ref4 = _asyncToGenerator(function* (source) {
-        const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
+        if (source.lazy) return source;
+        const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
         const {
           ok
         } = yield context.xhr.status(url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -12760,7 +12760,6 @@ function _validateSubtitleSources() {
           ok
         } = yield context.xhr.status(source.url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -13326,7 +13325,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13359,7 +13358,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13458,7 +13457,7 @@ var manifest_default = {
       active: false,
       language: ["es"],
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/es"
@@ -13562,8 +13561,7 @@ function _extractStreamwishStreams() {
         "sec-fetch-dest": "iframe",
         "sec-fetch-mode": "navigate",
         "sec-fetch-site": "cross-site",
-        "upgrade-insecure-requests": "1",
-        cookie: void 0
+        "upgrade-insecure-requests": "1"
       }
     };
     const page = yield ctx.cheerio.load(embedURL, opts, ctx.xhr);
@@ -13641,8 +13639,6 @@ function _extractDoodstreamStreams() {
         "sec-fetch-storage-access": "active",
         "sec-fetch-user": "?1",
         "upgrade-insecure-requests": "1",
-        cookie: void 0,
-        // Ensure cookies are not sent with the request
         referer: requestOpts.extraHeaders?.referer ?? embedURL.origin
         // Ensure referer is set for the initial page load
       }
@@ -13729,9 +13725,7 @@ function _extractFilemoonStreams() {
         "sec-fetch-mode": "navigate",
         "sec-fetch-site": "cross-site",
         "sec-fetch-storage-access": "active",
-        "upgrade-insecure-requests": "1",
-        cookie: void 0
-        // Ensure cookies are not sent with the request
+        "upgrade-insecure-requests": "1"
       }
     };
     const page = yield ctx.cheerio.load(embedURL, opts, ctx.xhr);
@@ -13787,9 +13781,7 @@ function _extractMixdropStream() {
       "sec-fetch-site": "cross-site",
       "sec-fetch-storage-access": "active",
       "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      cookie: void 0
-      // Ensure cookies are not sent with the request
+      "upgrade-insecure-requests": "1"
     };
     const iframeOpts = {
       ...requestOpts,
@@ -13850,9 +13842,7 @@ function _extractSupervideoStreams() {
         "Sec-Fetch-Site": "none",
         Priority: "u=0, i",
         Pragma: "no-cache",
-        "Cache-Control": "no-cache",
-        cookie: void 0
-        // Ensure cookies are not sent with the request
+        "Cache-Control": "no-cache"
       }
     };
     const page = yield ctx.cheerio.load(embedURL, opts, ctx.xhr);
@@ -13916,9 +13906,7 @@ function _extractDroploadStreams() {
         "sec-fetch-mode": "navigate",
         "sec-fetch-site": "cross-site",
         "sec-fetch-storage-access": "active",
-        "upgrade-insecure-requests": "1",
-        cookie: void 0
-        // Ensure cookies are not sent with the request
+        "upgrade-insecure-requests": "1"
       }
     };
     const page = yield ctx.cheerio.load(resourceURL, opts, ctx.xhr);
@@ -14008,131 +13996,126 @@ function _getStreams() {
     const media = requester.media;
     const base = new URL(PROVIDER.config.baseUrl);
     const wantType = media.type === "movie" ? "movie" : "show";
-    let session = null;
-    try {
-      session = yield ctx.puppeteer.launch(base, {
-        requester,
-        browsingOptions: {
-          ignoreError: true,
-          loadCriteria: "networkidle2"
+    const title = media.title;
+    const norm = s => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const solved = yield ctx.solveChallenge(base, requester, {
+      waitForCookie: "cf_clearance"
+    });
+    const headers = {
+      Referer: base.origin + "/",
+      ...(solved.cookies ? {
+        cookie: solved.cookies
+      } : {}),
+      ...(solved.userAgent ? {
+        "User-Agent": solved.userAgent
+      } : {})
+    };
+    const searchHtml = yield ctx.xhr.fetch(new URL("/xhrr.php", base), {
+      method: "POST",
+      attachUserAgent: true,
+      clean: true,
+      headers: {
+        ...headers,
+        "content-type": "application/x-www-form-urlencoded",
+        "x-requested-with": "XMLHttpRequest"
+      },
+      body: "q=" + encodeURIComponent(title)
+    }, requester).then(r => r.text()).catch(() => "");
+    if (!searchHtml || /just a moment/i.test(searchHtml)) {
+      ctx.log.warn("[goojara] Search blocked (CF-hardened site, see module header).");
+      return [];
+    }
+    const $s = ctx.cheerio.$load(searchHtml);
+    const results = [];
+    $s(".mfeed > li").each((_, li) => {
+      const el = $s(li);
+      const t = el.find("strong").first().text() || "";
+      const typeClass = el.find("div").first().attr("class");
+      const type = typeClass === "it" ? "show" : typeClass === "im" ? "movie" : "";
+      const slug = el.find("a").first().attr("href")?.split("/")[3];
+      if (slug && type === wantType) results.push({
+        title: t,
+        slug
+      });
+    });
+    const match = results.find(r => norm(r.title) === norm(title)) || results[0];
+    if (!match) {
+      ctx.log.warn("[goojara] No matching result.");
+      return [];
+    }
+    let id = match.slug;
+    if (media.type === "serie") {
+      const s = media;
+      const showHtml = yield ctx.xhr.fetch(new URL(`/${match.slug}?s=${s.season}`, base), {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        headers
+      }, requester).then(r => r.text()).catch(() => "");
+      const $e = ctx.cheerio.$load(showHtml);
+      id = "";
+      $e(".seho").each((_, el) => {
+        if (id) return;
+        const epNum = $e(el).find(".seep .sea").first().text().trim();
+        if (epNum && parseInt(epNum, 10) === s.episode) {
+          const href = $e(el).find(".snfo h1 a").first().attr("href") || "";
+          const cap = href.match(/\/([a-zA-Z0-9]+)$/)?.[1];
+          if (cap) id = cap;
         }
       });
-      const page = session.page;
-      const resolved = yield page.evaluate(/*#__PURE__*/function () {
-        var _ref6 = _asyncToGenerator(function* (title, wantType2, seasonEp) {
-          const norm = s => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-          const searchHtml = yield (yield fetch("/xhrr.php", {
-            method: "POST",
-            headers: {
-              "content-type": "application/x-www-form-urlencoded",
-              "x-requested-with": "XMLHttpRequest"
-            },
-            body: "q=" + encodeURIComponent(title)
-          })).text();
-          if (/just a moment/i.test(searchHtml)) return {
-            error: "cf-blocked"
-          };
-          const doc = new DOMParser().parseFromString(searchHtml, "text/html");
-          const results2 = [];
-          doc.querySelectorAll(".mfeed > li").forEach(li => {
-            const t = li.querySelector("strong")?.textContent || "";
-            const yearM = (li.textContent || "").match(/\((\d{4})\)/);
-            const typeDiv = li.querySelector("div")?.getAttribute("class");
-            const type = typeDiv === "it" ? "show" : typeDiv === "im" ? "movie" : "";
-            const slug = li.querySelector("a")?.getAttribute("href")?.split("/")[3];
-            if (slug && type === wantType2) results2.push({
-              title: t,
-              year: yearM ? yearM[1] : "",
-              slug
-            });
-          });
-          const match = results2.find(r => norm(r.title) === norm(title)) || results2[0];
-          if (!match) return {
-            error: "no-match"
-          };
-          let id = match.slug;
-          if (seasonEp) {
-            const showHtml = yield (yield fetch(`/${match.slug}?s=${seasonEp.season}`)).text();
-            const sdoc = new DOMParser().parseFromString(showHtml, "text/html");
-            id = "";
-            sdoc.querySelectorAll(".seho").forEach(el => {
-              const epNum = el.querySelector(".seep .sea")?.textContent?.trim();
-              if (epNum && parseInt(epNum, 10) === seasonEp.episode) {
-                const href = el.querySelector(".snfo h1 a")?.getAttribute("href") || "";
-                const m2 = href.match(/\/([a-zA-Z0-9]+)$/);
-                if (m2) id = m2[1];
-              }
-            });
-            if (!id) return {
-              error: "no-episode"
-            };
-          }
-          const idHtml = yield (yield fetch(`/${id}`, {
-            headers: {
-              Referer: location.origin
-            }
-          })).text();
-          const idoc = new DOMParser().parseFromString(idHtml, "text/html");
-          const goLinks = Array.from(idoc.querySelectorAll("a")).map(a => a.getAttribute("href") || "").filter(h2 => h2.includes("/go.php"));
-          return {
-            name: match.title,
-            goLinks: Array.from(new Set(goLinks))
-          };
-        });
-        return function (_x44, _x45, _x46) {
-          return _ref6.apply(this, arguments);
-        };
-      }(), media.title, wantType, media.type === "serie" ? {
-        season: media.season,
-        episode: media.episode
-      } : null);
-      if (resolved.error || !resolved.goLinks?.length) {
-        ctx.log.warn(`[goojara] Stopped: ${resolved.error ?? "no embeds"} (CF-hardened site \u2014 see module header).`);
+      if (!id) {
+        ctx.log.warn("[goojara] Requested episode not found.");
         return [];
       }
-      ctx.log.info(`[goojara] "${resolved.name}" -> ${resolved.goLinks.length} embed redirect(s).`);
-      const embedUrls = [];
-      for (const go of resolved.goLinks.slice(0, 5)) {
-        const tab = yield session.browser.newPage().catch(() => null);
-        if (!tab) continue;
-        try {
-          yield tab.goto(new URL(go, base).href, {
-            waitUntil: "domcontentloaded",
-            timeout: 15e3
-          }).catch(() => null);
-          const finalUrl = tab.url();
-          if (finalUrl && !finalUrl.includes("goojara")) embedUrls.push(finalUrl);
-        } finally {
-          yield tab.close().catch(() => null);
-        }
-      }
-      const results = [];
-      const opts = {
-        ...requester,
-        extraHeaders: {
-          Referer: base.origin + "/"
-        }
-      };
-      for (const embed of embedUrls) {
-        if (/wootly/i.test(embed)) {
-          ctx.log.debug(`[goojara] wootly embed not yet supported: ${embed}`);
-          continue;
-        }
-        try {
-          const sources = yield dispatchEmbed(embed, opts, ctx, "en");
-          if (sources.length) results.push(...sources);
-        } catch (error) {
-          ctx.log.debug(`[goojara] Extractor failed for ${embed}: ${error.message}`);
-        }
-      }
-      ctx.log.info(`[goojara] Returning ${results.length} source(s).`);
-      return results;
-    } catch (error) {
-      ctx.log.error(`[goojara] Browser flow failed: ${error.message}`);
-      return [];
-    } finally {
-      yield session?.page.close().catch(() => null);
     }
+    const idHtml = yield ctx.xhr.fetch(new URL(`/${id}`, base), {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      headers
+    }, requester).then(r => r.text()).catch(() => "");
+    const $i = ctx.cheerio.$load(idHtml);
+    const goLinks = Array.from(new Set($i("a").toArray().map(a => $i(a).attr("href") || "").filter(h2 => h2.includes("/go.php"))));
+    if (!goLinks.length) {
+      ctx.log.warn(`[goojara] No embeds for "${match.title}".`);
+      return [];
+    }
+    ctx.log.info(`[goojara] "${match.title}" -> ${goLinks.length} embed redirect(s).`);
+    const embedUrls = [];
+    for (const go of goLinks.slice(0, 5)) {
+      try {
+        const res = yield ctx.xhr.fetch(new URL(go, base), {
+          method: "GET",
+          attachUserAgent: true,
+          clean: true,
+          headers,
+          redirect: "follow"
+        }, requester);
+        const finalUrl = res.url;
+        if (finalUrl && !/goojara/i.test(finalUrl)) embedUrls.push(finalUrl);
+      } catch {}
+    }
+    const sources = [];
+    const opts = {
+      ...requester,
+      extraHeaders: {
+        Referer: base.origin + "/"
+      }
+    };
+    for (const embed of embedUrls) {
+      if (/wootly/i.test(embed)) {
+        ctx.log.debug(`[goojara] wootly embed not yet supported: ${embed}`);
+        continue;
+      }
+      try {
+        const found = yield dispatchEmbed(embed, opts, ctx, "en");
+        if (found.length) sources.push(...found);
+      } catch (error) {
+        ctx.log.debug(`[goojara] Extractor failed for ${embed}: ${error.message}`);
+      }
+    }
+    ctx.log.info(`[goojara] Returning ${sources.length} source(s).`);
+    return sources;
   });
   return _getStreams.apply(this, arguments);
 }

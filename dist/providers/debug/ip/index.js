@@ -12554,13 +12554,13 @@ function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
       var _ref4 = _asyncToGenerator(function* (source) {
-        const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
+        if (source.lazy) return source;
+        const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
         const {
           ok
         } = yield context.xhr.status(url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -12585,7 +12585,6 @@ function _validateSubtitleSources() {
           ok
         } = yield context.xhr.status(source.url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -13031,7 +13030,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13064,7 +13063,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13163,7 +13162,7 @@ var manifest_default = {
       active: false,
       language: ["es"],
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/es"
@@ -13288,19 +13287,17 @@ function _getSubtitles() {
     const response = yield ctx.xhr.fetch(subtitleUrl, {}, requester);
     const data = yield response.json();
     if (!Array.isArray(data) || data.length === 0) return [];
-    return [{
+    return data.map(sub => ({
       fileName: "subtitles.srt",
       format: "srt",
-      sources: data.map(sub => ({
-        language: sub.language,
-        languageName: sub.languageName,
-        url: sub.url
-      })),
+      language: sub.language,
+      languageName: sub.languageName,
+      url: sub.url,
       xhr: {
         flags: [],
         headers: {}
       }
-    }];
+    }));
   });
   return _getSubtitles.apply(this, arguments);
 }

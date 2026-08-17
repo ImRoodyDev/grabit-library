@@ -12559,13 +12559,13 @@ function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
       var _ref4 = _asyncToGenerator(function* (source) {
-        const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
+        if (source.lazy) return source;
+        const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
         const {
           ok
         } = yield context.xhr.status(url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -12590,7 +12590,6 @@ function _validateSubtitleSources() {
           ok
         } = yield context.xhr.status(source.url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -13085,7 +13084,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13118,7 +13117,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13217,7 +13216,7 @@ var manifest_default = {
       active: false,
       language: ["es"],
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/es"
@@ -13384,27 +13383,15 @@ function _fetchTextWithCloudflareFallback() {
     } catch (error) {
       ctx.log.warn(`[hubcloud] xhr fetch failed for ${target.href} (${error.message}), trying browser session.`);
     }
-    let session = null;
     try {
-      session = yield ctx.puppeteer.launch(target, {
-        requester,
-        browsingOptions: {
-          ignoreError: true,
-          loadCriteria: "networkidle0"
-        }
+      const solved = yield ctx.solveChallenge(target, requester, {
+        waitForCookie: "cf_clearance"
       });
-      const html = yield session.page.content();
-      try {
-        const cookies = yield session.page.cookies();
-        const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join("; ");
-        if (cookieStr) cookieJar.cookie = cookieStr;
-      } catch {}
-      return html;
+      if (solved.cookies) cookieJar.cookie = solved.cookies;
+      return solved.html;
     } catch (error) {
-      ctx.log.error(`[hubcloud] Browser fallback failed for ${target.href}: ${error.message}`);
+      ctx.log.error(`[hubcloud] Challenge solve failed for ${target.href}: ${error.message}`);
       return null;
-    } finally {
-      yield session?.page.close().catch(() => null);
     }
   });
   return _fetchTextWithCloudflareFallback.apply(this, arguments);

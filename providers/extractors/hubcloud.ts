@@ -10,8 +10,9 @@ import {
  * labelled consistently by the calling provider.
  */
 export interface HubcloudMeta {
-	/** Base label for the resolved file (e.g. "Movie Title 1080p"). */
-	fileName?: string;
+	/** Base label for the resolved file (e.g. "Movie Title 1080p"). Absent/undefined is fine
+	 *  (it is filtered out of the label), so allow an explicit undefined under exactOptionalPropertyTypes. */
+	fileName?: string | undefined;
 	/** ISO language code applied to every resolved source. */
 	language: string;
 	/** Optional quality hint folded into the file name. */
@@ -60,10 +61,10 @@ function getRedirectedPixelDrainUrl(...htmlSources: Array<string | undefined>): 
 type RawHubcloudLink = { server: string; url: string };
 
 /**
- * Fetches a page as text, transparently falling back to a real browser session
- * (puppeteer) when the origin answers with a Cloudflare 403 challenge. Any
- * `cf_clearance` cookie the browser earns is written back into `cookieJar` so the
- * following hops on the same origin reuse it.
+ * Fetches a page as text, transparently solving the Cloudflare challenge
+ * (`ctx.solveChallenge`) when the origin answers with a 403 challenge. The cookies
+ * the solve earns are written back into `cookieJar` so the following hops on the same
+ * origin reuse them. Universal: uses puppeteer on Node and a host solver off Node.
  */
 async function fetchTextWithCloudflareFallback(
 	target: URL,
@@ -94,28 +95,15 @@ async function fetchTextWithCloudflareFallback(
 		ctx.log.warn(`[hubcloud] xhr fetch failed for ${target.href} (${(error as Error).message}), trying browser session.`);
 	}
 
-	// --- Puppeteer (Cloudflare) fallback ---
-	let session: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;
+	// --- Cloudflare solve fallback ---
 	try {
-		session = await ctx.puppeteer.launch(target, {
-			requester,
-			browsingOptions: { ignoreError: true, loadCriteria: 'networkidle0' },
-		});
-		const html = await session.page.content();
-		// Persist any cf_clearance cookie for subsequent same-origin hops.
-		try {
-			const cookies = await session.page.cookies();
-			const cookieStr = cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
-			if (cookieStr) cookieJar.cookie = cookieStr;
-		} catch {
-			/* cookies are best-effort */
-		}
-		return html;
+		const solved = await ctx.solveChallenge(target, requester, { waitForCookie: 'cf_clearance' });
+		// Persist the earned cookies for subsequent same-origin hops.
+		if (solved.cookies) cookieJar.cookie = solved.cookies;
+		return solved.html;
 	} catch (error) {
-		ctx.log.error(`[hubcloud] Browser fallback failed for ${target.href}: ${(error as Error).message}`);
+		ctx.log.error(`[hubcloud] Challenge solve failed for ${target.href}: ${(error as Error).message}`);
 		return null;
-	} finally {
-		await session?.page.close().catch(() => null);
 	}
 }
 

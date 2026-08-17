@@ -4,8 +4,6 @@ import {
 	type ProviderContext,
 	type CheerioLoadRequest,
 	type SerieMedia,
-	delay,
-	PuppeteerLoadRequest,
 } from 'grabit-engine';
 import { extractHubcloudStreams } from '../../../extractors/hubcloud';
 import { detectQuality } from '../../../extractors/hubchain';
@@ -46,44 +44,26 @@ async function loadPageWithCF(
 	requester: ScrapeRequester,
 	ctx: ProviderContext,
 	pageOpt: CheerioLoadRequest,
-	loadCriteria: NonNullable<PuppeteerLoadRequest['browsingOptions']>['loadCriteria'] = 'networkidle0',
 ): Promise<Cheerio$> {
 	try {
 		const { $ } = await ctx.cheerio.load(url, pageOpt, ctx.xhr);
 		const title = $('title').text();
 		const challenged = /just a moment|attention required|checking your browser|cf-browser-verification/i.test(title);
 		if (!challenged && $('body').text().trim().length > 200) return $;
-		ctx.log.warn(`[1cinevood] Cloudflare challenge on ${url.href}, using browser session.`);
+		ctx.log.warn(`[1cinevood] Cloudflare challenge on ${url.href}, solving.`);
 	} catch (error) {
-		ctx.log.warn(`[1cinevood] Direct load failed for ${url.href} (${(error as Error).message}), using browser.`);
+		ctx.log.warn(`[1cinevood] Direct load failed for ${url.href} (${(error as Error).message}), solving.`);
 	}
 
+	// Only the rendered HTML is needed, so solve the challenge instead of driving puppeteer.
+	// solveChallenge runs on Node and via a host solver off Node, keeping this universal.
 	const CHALLENGE_RE = /just a moment|attention required|checking your browser|cf-browser-verification/i;
-	let session: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;
-	try {
-		session = await ctx.puppeteer.launch(url, {
-			requester,
-			browsingOptions: { ignoreError: true, loadCriteria: loadCriteria },
-		});
-		// The engine can return while Cloudflare's interstitial is still showing.
-		// Wait for the challenge to actually clear (title stops being "Just a moment")
-		// before reading the DOM, otherwise we parse the challenge page and get 0 hits.
-		await session.page
-			.waitForFunction(
-				() => !/just a moment|attention required|checking your browser|cf-browser-verification/i.test(document.title || ''),
-				{ timeout: 20000, polling: 500 },
-			)
-			.catch(() => null);
-		await delay(1200); // let the real page's markup render after the redirect
-		const html = await session.page.content();
-		const $ = ctx.cheerio.$load(html);
-		if (CHALLENGE_RE.test($('title').text())) {
-			ctx.log.warn(`[1cinevood] Cloudflare still challenging ${url.href} after wait; may yield no results.`);
-		}
-		return $;
-	} finally {
-		await session?.page.close().catch(() => null);
+	const solved = await ctx.solveChallenge(url, requester, { waitForCookie: 'cf_clearance' });
+	const $ = ctx.cheerio.$load(solved.html);
+	if (CHALLENGE_RE.test($('title').text())) {
+		ctx.log.warn(`[1cinevood] Cloudflare still challenging ${url.href} after solve; may yield no results.`);
 	}
+	return $;
 }
 
 /**
@@ -275,7 +255,7 @@ async function getCandidateLinks(
 	pageOpt: CheerioLoadRequest,
 ): Promise<Candidate[]> {
 	const url = new URL(link, `${PROVIDER.config.baseUrl}/`);
-	const $ = await loadPageWithCF(url, requester, ctx, pageOpt, 'networkidle2');
+	const $ = await loadPageWithCF(url, requester, ctx, pageOpt);
 	const container = $('.entry-content, .post-inner').first().length
 		? $('.entry-content, .post-inner').first()
 		: $('body');

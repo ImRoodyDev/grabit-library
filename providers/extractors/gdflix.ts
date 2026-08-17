@@ -15,8 +15,9 @@ const GDFLIX_UA =
 	'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0';
 
 /**
- * Fetches a page as text, falling back to a real browser session on a Cloudflare
- * 403, reusing any earned cookie for later same-origin hops.
+ * Fetches a page as text, solving the Cloudflare challenge (`ctx.solveChallenge`) on a
+ * 403 and reusing the earned cookies for later same-origin hops. Universal: puppeteer on
+ * Node, a host solver off Node.
  */
 async function fetchTextWithCloudflareFallback(
 	target: URL,
@@ -37,26 +38,13 @@ async function fetchTextWithCloudflareFallback(
 		ctx.log.warn(`[gdflix] xhr fetch failed for ${target.href} (${(error as Error).message}), using browser.`);
 	}
 
-	let session: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;
 	try {
-		session = await ctx.puppeteer.launch(target, {
-			requester,
-			browsingOptions: { ignoreError: true, loadCriteria: 'networkidle0' },
-		});
-		const html = await session.page.content();
-		try {
-			const cookies = await session.page.cookies();
-			const str = cookies.map((c: any) => `${c.name}=${c.value}`).join('; ');
-			if (str) cookieJar.cookie = str;
-		} catch {
-			/* best-effort */
-		}
-		return html;
+		const solved = await ctx.solveChallenge(target, requester, { waitForCookie: 'cf_clearance' });
+		if (solved.cookies) cookieJar.cookie = solved.cookies;
+		return solved.html;
 	} catch (error) {
-		ctx.log.error(`[gdflix] Browser fallback failed for ${target.href}: ${(error as Error).message}`);
+		ctx.log.error(`[gdflix] Challenge solve failed for ${target.href}: ${(error as Error).message}`);
 		return null;
-	} finally {
-		await session?.page.close().catch(() => null);
 	}
 }
 

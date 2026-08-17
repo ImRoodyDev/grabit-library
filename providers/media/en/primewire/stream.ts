@@ -231,21 +231,10 @@ function parseStreamingLinkPayload(rawPayload: string, ctx: ProviderContext): St
 	}
 }
 
-async function extractStreamingLinkFromPage(
-	page: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>>['page'],
-	ctx: ProviderContext,
-): Promise<StreamingLink | null> {
-	await page.waitForFunction(() => document.body?.innerText.trim().length > 0, { timeout: 10000 }).catch(() => null);
-
-	const rawPayload = await page.evaluate(() => {
-		const preformattedPayload = document.querySelector('pre')?.textContent?.trim();
-		if (preformattedPayload) return preformattedPayload;
-
-		const bodyPayload = document.body?.innerText?.trim();
-		if (bodyPayload) return bodyPayload;
-
-		return document.documentElement?.textContent?.trim() ?? '';
-	});
+function extractStreamingLinkFromHtml(html: string, ctx: ProviderContext): StreamingLink | null {
+	// The server endpoint responds with a JSON payload; a browser shows it inside <pre>.
+	const $ = ctx.cheerio.$load(html);
+	const rawPayload = ($('pre').first().text().trim() || $('body').text().trim() || '').trim();
 
 	const parsed = parseStreamingLinkPayload(rawPayload, ctx);
 	if (parsed) return parsed;
@@ -471,20 +460,12 @@ async function getServers(
 				);
 			}
 
-			// Browser session fallback
-			ctx.log.info('--- Browser Session Fallback ---');
-			let streamingSession: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;
+			// Challenge-solve fallback: the server endpoint is Cloudflare-gated, so solve it and
+			// read the JSON payload from the rendered HTML over ctx.xhr (no direct puppeteer).
+			ctx.log.info('--- Challenge Solve Fallback ---');
 			try {
-				// Load browser session
-				streamingSession = await ctx.puppeteer.launch(serverURL, {
-					requester,
-					browsingOptions: {
-						ignoreError: true,
-						loadCriteria: 'networkidle0',
-					},
-				});
-
-				const streamingLink = await extractStreamingLinkFromPage(streamingSession.page, ctx);
+				const solved = await ctx.solveChallenge(serverURL, requester, {});
+				const streamingLink = extractStreamingLinkFromHtml(solved.html, ctx);
 				if (!streamingLink?.link) {
 					ctx.log.warn(`Primewire returned no streaming link for server ${server.name} (key: ${server.key}).`);
 					continue;
@@ -497,9 +478,7 @@ async function getServers(
 					file_size: server.file_size,
 				});
 			} catch (error) {
-				ctx.log.error(`Error during browser session for server ${server.name} (key: ${server.key}): ${error}`);
-			} finally {
-				await streamingSession?.page.close().catch(() => null);
+				ctx.log.error(`Error during challenge solve for server ${server.name} (key: ${server.key}): ${error}`);
 			}
 		} catch (error) {
 			ctx.log.error(`Error resolving server ${server.name} (key: ${server.key}): ${error}`);

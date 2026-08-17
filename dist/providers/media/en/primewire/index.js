@@ -12656,18 +12656,18 @@ function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
       var _ref4 = _asyncToGenerator(function* (source) {
-        const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
+        if (source.lazy) return source;
+        const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
         const {
           ok
         } = yield context.xhr.status(url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
       });
-      return function (_x31) {
+      return function (_x29) {
         return _ref4.apply(this, arguments);
       };
     }()));
@@ -12687,12 +12687,11 @@ function _validateSubtitleSources() {
           ok
         } = yield context.xhr.status(source.url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
       });
-      return function (_x32) {
+      return function (_x30) {
         return _ref5.apply(this, arguments);
       };
     }()));
@@ -13302,7 +13301,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13335,7 +13334,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13434,7 +13433,7 @@ var manifest_default = {
       active: false,
       language: ["es"],
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/es"
@@ -13551,9 +13550,7 @@ function _extractMixdropStream() {
       "sec-fetch-site": "cross-site",
       "sec-fetch-storage-access": "active",
       "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      cookie: void 0
-      // Ensure cookies are not sent with the request
+      "upgrade-insecure-requests": "1"
     };
     const iframeOpts = {
       ...requestOpts,
@@ -13726,29 +13723,15 @@ function parseStreamingLinkPayload(rawPayload, ctx) {
     return null;
   }
 }
-function extractStreamingLinkFromPage(_x18, _x19) {
-  return _extractStreamingLinkFromPage.apply(this, arguments);
+function extractStreamingLinkFromHtml(html, ctx) {
+  const $ = ctx.cheerio.$load(html);
+  const rawPayload = ($("pre").first().text().trim() || $("body").text().trim() || "").trim();
+  const parsed = parseStreamingLinkPayload(rawPayload, ctx);
+  if (parsed) return parsed;
+  ctx.log.debug(`Primewire streaming payload was not valid JSON: ${rawPayload.slice(0, 500)}`);
+  return null;
 }
-function _extractStreamingLinkFromPage() {
-  _extractStreamingLinkFromPage = _asyncToGenerator(function* (page, ctx) {
-    yield page.waitForFunction(() => document.body?.innerText.trim().length > 0, {
-      timeout: 1e4
-    }).catch(() => null);
-    const rawPayload = yield page.evaluate(() => {
-      const preformattedPayload = document.querySelector("pre")?.textContent?.trim();
-      if (preformattedPayload) return preformattedPayload;
-      const bodyPayload = document.body?.innerText?.trim();
-      if (bodyPayload) return bodyPayload;
-      return document.documentElement?.textContent?.trim() ?? "";
-    });
-    const parsed = parseStreamingLinkPayload(rawPayload, ctx);
-    if (parsed) return parsed;
-    ctx.log.debug(`Primewire streaming payload was not valid JSON: ${rawPayload.slice(0, 500)}`);
-    return null;
-  });
-  return _extractStreamingLinkFromPage.apply(this, arguments);
-}
-function getKeyCookies(_x20, _x21, _x22) {
+function getKeyCookies(_x18, _x19, _x20) {
   return _getKeyCookies.apply(this, arguments);
 }
 function _getKeyCookies() {
@@ -13806,7 +13789,7 @@ function extractResultIdFromURL(targetURL) {
     name: match[3] || null
   };
 }
-function getEpisodeURL(_x23, _x24, _x25, _x26) {
+function getEpisodeURL(_x21, _x22, _x23, _x24) {
   return _getEpisodeURL.apply(this, arguments);
 }
 function _getEpisodeURL() {
@@ -13859,7 +13842,7 @@ Href: ${episode.href}`);
   });
   return _getEpisodeURL.apply(this, arguments);
 }
-function getServers(_x27, _x28, _x29, _x30) {
+function getServers(_x25, _x26, _x27, _x28) {
   return _getServers.apply(this, arguments);
 } // providers/media/en/primewire/index.ts
 function _getServers() {
@@ -13944,17 +13927,10 @@ function _getServers() {
         } catch (error) {
           ctx.log.warn(`API resolution failed for server ${server.name} (key: ${server.key}), falling back to browser session. Error: ${error}`);
         }
-        ctx.log.info("--- Browser Session Fallback ---");
-        let streamingSession = null;
+        ctx.log.info("--- Challenge Solve Fallback ---");
         try {
-          streamingSession = yield ctx.puppeteer.launch(serverURL, {
-            requester,
-            browsingOptions: {
-              ignoreError: true,
-              loadCriteria: "networkidle0"
-            }
-          });
-          const streamingLink = yield extractStreamingLinkFromPage(streamingSession.page, ctx);
+          const solved = yield ctx.solveChallenge(serverURL, requester, {});
+          const streamingLink = extractStreamingLinkFromHtml(solved.html, ctx);
           if (!streamingLink?.link) {
             ctx.log.warn(`Primewire returned no streaming link for server ${server.name} (key: ${server.key}).`);
             continue;
@@ -13967,9 +13943,7 @@ function _getServers() {
             file_size: server.file_size
           });
         } catch (error) {
-          ctx.log.error(`Error during browser session for server ${server.name} (key: ${server.key}): ${error}`);
-        } finally {
-          yield streamingSession?.page.close().catch(() => null);
+          ctx.log.error(`Error during challenge solve for server ${server.name} (key: ${server.key}): ${error}`);
         }
       } catch (error) {
         ctx.log.error(`Error resolving server ${server.name} (key: ${server.key}): ${error}`);

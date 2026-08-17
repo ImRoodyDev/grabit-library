@@ -179,9 +179,8 @@ async function getEmbedUrls(
 		ctx.log.debug(`[cuevana] Static embed parse failed: ${(error as Error).message}`);
 	}
 
-	// Most watch pages populate the server list via a JS/AJAX call behind Cloudflare.
-	// Render with a real browser, click each `.clili` server to materialise its iframe,
-	// then read every `iframe[data-src]`/`src`.
+	// The iframes only materialise after clicking each `.clili` server, so a static solve
+	// is not enough here: render with a real browser, click each option, then read the iframes.
 	if (raw.length === 0) {
 		ctx.log.info('[cuevana] No inline embeds; rendering the page with a browser session.');
 		let session: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;

@@ -17,125 +17,141 @@ import { PROVIDER } from './config';
  *
  * ⚠️ Currently `active: false`. Goojara moved behind Cloudflare and its `/xhrr.php`
  * search POST returns 403 **even inside a CF-solved browser session** (verified), so
- * the chain cannot start today. The logic is ported and driven through puppeteer so
- * it resumes working if/when the site is scrapable again. The `wootly` embed host is
- * not yet ported (its own cookie/token dance) — mixdrop/dood/upstream that go through
- * `embedDispatch` are covered.
+ * the chain cannot start today. The logic is ported and driven via `ctx.solveChallenge`
+ * + `ctx.xhr` (universal) so it resumes working if/when the site is scrapable again. The
+ * `wootly` embed host is not yet ported (its own cookie/token dance) — mixdrop/dood/upstream
+ * that go through `embedDispatch` are covered.
  */
 export async function getStreams(requester: ScrapeRequester, ctx: ProviderContext): Promise<InternalMediaSource[]> {
 	if (requester.media.type === 'channel') return [];
 	const media = requester.media;
 	const base = new URL(PROVIDER.config.baseUrl);
 	const wantType = media.type === 'movie' ? 'movie' : 'show';
+	const title = (media as any).title as string;
+	const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 
-	let session: Awaited<ReturnType<ProviderContext['puppeteer']['launch']>> | null = null;
-	try {
-		session = await ctx.puppeteer.launch(base, {
-			requester,
-			browsingOptions: { ignoreError: true, loadCriteria: 'networkidle2' },
-		});
-		const page = session.page;
+	// The site is Cloudflare-gated; solve once, then run the whole chain over ctx.xhr.
+	const solved = await ctx.solveChallenge(base, requester, { waitForCookie: 'cf_clearance' });
+	const headers: Record<string, string> = {
+		Referer: base.origin + '/',
+		...(solved.cookies ? { cookie: solved.cookies } : {}),
+		...(solved.userAgent ? { 'User-Agent': solved.userAgent } : {}),
+	};
 
-		// 1. Search (POST /xhrr.php) + 2. resolve the id, inside the CF-solved context.
-		const resolved = (await page.evaluate(
-			async (title: string, wantType: string, seasonEp: any) => {
-				const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-				// --- search ---
-				const searchHtml = await (
-					await fetch('/xhrr.php', {
-						method: 'POST',
-						headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-requested-with': 'XMLHttpRequest' },
-						body: 'q=' + encodeURIComponent(title),
-					})
-				).text();
-				if (/just a moment/i.test(searchHtml)) return { error: 'cf-blocked' };
-				const doc = new DOMParser().parseFromString(searchHtml, 'text/html');
-				const results: any[] = [];
-				doc.querySelectorAll('.mfeed > li').forEach((li) => {
-					const t = li.querySelector('strong')?.textContent || '';
-					const yearM = (li.textContent || '').match(/\((\d{4})\)/);
-					const typeDiv = li.querySelector('div')?.getAttribute('class');
-					const type = typeDiv === 'it' ? 'show' : typeDiv === 'im' ? 'movie' : '';
-					const slug = li.querySelector('a')?.getAttribute('href')?.split('/')[3];
-					if (slug && type === wantType) results.push({ title: t, year: yearM ? yearM[1] : '', slug });
-				});
-				const match = results.find((r) => norm(r.title) === norm(title)) || results[0];
-				if (!match) return { error: 'no-match' };
-
-				// --- id (movie = slug; show = episode id from /slug?s=season) ---
-				let id = match.slug;
-				if (seasonEp) {
-					const showHtml = await (await fetch(`/${match.slug}?s=${seasonEp.season}`)).text();
-					const sdoc = new DOMParser().parseFromString(showHtml, 'text/html');
-					id = '';
-					sdoc.querySelectorAll('.seho').forEach((el) => {
-						const epNum = el.querySelector('.seep .sea')?.textContent?.trim();
-						if (epNum && parseInt(epNum, 10) === seasonEp.episode) {
-							const href = el.querySelector('.snfo h1 a')?.getAttribute('href') || '';
-							const m = href.match(/\/([a-zA-Z0-9]+)$/);
-							if (m) id = m[1];
-						}
-					});
-					if (!id) return { error: 'no-episode' };
-				}
-
-				// --- /id page -> collect go.php embed-redirect links ---
-				const idHtml = await (await fetch(`/${id}`, { headers: { Referer: location.origin } })).text();
-				const idoc = new DOMParser().parseFromString(idHtml, 'text/html');
-				const goLinks = Array.from(idoc.querySelectorAll('a'))
-					.map((a) => a.getAttribute('href') || '')
-					.filter((h) => h.includes('/go.php'));
-				return { name: match.title as string, goLinks: Array.from(new Set(goLinks)) };
+	// 1. Search POST /xhrr.php.
+	const searchHtml = await ctx.xhr
+		.fetch(
+			new URL('/xhrr.php', base),
+			{
+				method: 'POST',
+				attachUserAgent: true,
+				clean: true,
+				headers: { ...headers, 'content-type': 'application/x-www-form-urlencoded', 'x-requested-with': 'XMLHttpRequest' },
+				body: 'q=' + encodeURIComponent(title),
 			},
-			(media as any).title,
-			wantType,
-			media.type === 'serie'
-				? { season: (media as SerieMedia).season, episode: (media as SerieMedia).episode }
-				: null,
-		)) as { error?: string; name?: string; goLinks?: string[] };
+			requester,
+		)
+		.then((r) => r.text())
+		.catch(() => '');
+	if (!searchHtml || /just a moment/i.test(searchHtml)) {
+		ctx.log.warn('[goojara] Search blocked (CF-hardened site, see module header).');
+		return [];
+	}
 
-		if (resolved.error || !resolved.goLinks?.length) {
-			ctx.log.warn(`[goojara] Stopped: ${resolved.error ?? 'no embeds'} (CF-hardened site — see module header).`);
+	// 2. Match a result.
+	const $s = ctx.cheerio.$load(searchHtml);
+	const results: { title: string; slug: string }[] = [];
+	$s('.mfeed > li').each((_: number, li: any) => {
+		const el = $s(li);
+		const t = el.find('strong').first().text() || '';
+		const typeClass = el.find('div').first().attr('class');
+		const type = typeClass === 'it' ? 'show' : typeClass === 'im' ? 'movie' : '';
+		const slug = el.find('a').first().attr('href')?.split('/')[3];
+		if (slug && type === wantType) results.push({ title: t, slug });
+	});
+	const match = results.find((r) => norm(r.title) === norm(title)) || results[0];
+	if (!match) {
+		ctx.log.warn('[goojara] No matching result.');
+		return [];
+	}
+
+	// 3. Resolve the id (movie = slug; show = episode id from /slug?s=season).
+	let id = match.slug;
+	if (media.type === 'serie') {
+		const s = media as SerieMedia;
+		const showHtml = await ctx.xhr
+			.fetch(new URL(`/${match.slug}?s=${s.season}`, base), { method: 'GET', attachUserAgent: true, clean: true, headers }, requester)
+			.then((r) => r.text())
+			.catch(() => '');
+		const $e = ctx.cheerio.$load(showHtml);
+		id = '';
+		$e('.seho').each((_: number, el: any) => {
+			if (id) return;
+			const epNum = $e(el).find('.seep .sea').first().text().trim();
+			if (epNum && parseInt(epNum, 10) === s.episode) {
+				const href = $e(el).find('.snfo h1 a').first().attr('href') || '';
+				const cap = href.match(/\/([a-zA-Z0-9]+)$/)?.[1];
+				if (cap) id = cap;
+			}
+		});
+		if (!id) {
+			ctx.log.warn('[goojara] Requested episode not found.');
 			return [];
 		}
-		ctx.log.info(`[goojara] "${resolved.name}" -> ${resolved.goLinks.length} embed redirect(s).`);
-
-		// 3. Resolve each go.php redirect to its real embed host via a browser tab.
-		const embedUrls: string[] = [];
-		for (const go of resolved.goLinks.slice(0, 5)) {
-			const tab = await session.browser.newPage().catch(() => null);
-			if (!tab) continue;
-			try {
-				await tab.goto(new URL(go, base).href, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null);
-				const finalUrl = tab.url();
-				if (finalUrl && !finalUrl.includes('goojara')) embedUrls.push(finalUrl);
-			} finally {
-				await tab.close().catch(() => null);
-			}
-		}
-
-		// 4. Dispatch each embed host (mixdrop / dood / … via embedDispatch; wootly TODO).
-		const results: InternalMediaSource[] = [];
-		const opts: CheerioLoadRequest = { ...requester, extraHeaders: { Referer: base.origin + '/' } };
-		for (const embed of embedUrls) {
-			if (/wootly/i.test(embed)) {
-				ctx.log.debug(`[goojara] wootly embed not yet supported: ${embed}`);
-				continue;
-			}
-			try {
-				const sources = await dispatchEmbed(embed, opts, ctx, 'en');
-				if (sources.length) results.push(...sources);
-			} catch (error) {
-				ctx.log.debug(`[goojara] Extractor failed for ${embed}: ${(error as Error).message}`);
-			}
-		}
-
-		ctx.log.info(`[goojara] Returning ${results.length} source(s).`);
-		return results;
-	} catch (error) {
-		ctx.log.error(`[goojara] Browser flow failed: ${(error as Error).message}`);
-		return [];
-	} finally {
-		await session?.page.close().catch(() => null);
 	}
+
+	// 4. /id page -> go.php embed-redirect links.
+	const idHtml = await ctx.xhr
+		.fetch(new URL(`/${id}`, base), { method: 'GET', attachUserAgent: true, clean: true, headers }, requester)
+		.then((r) => r.text())
+		.catch(() => '');
+	const $i = ctx.cheerio.$load(idHtml);
+	const goLinks = Array.from(
+		new Set(
+			$i('a')
+				.toArray()
+				.map((a: any) => $i(a).attr('href') || '')
+				.filter((h: string) => h.includes('/go.php')),
+		),
+	);
+	if (!goLinks.length) {
+		ctx.log.warn(`[goojara] No embeds for "${match.title}".`);
+		return [];
+	}
+	ctx.log.info(`[goojara] "${match.title}" -> ${goLinks.length} embed redirect(s).`);
+
+	// 5. Follow each go.php redirect to its real embed host (ctx.xhr follows the redirect).
+	const embedUrls: string[] = [];
+	for (const go of goLinks.slice(0, 5)) {
+		try {
+			const res = await ctx.xhr.fetch(
+				new URL(go, base),
+				{ method: 'GET', attachUserAgent: true, clean: true, headers, redirect: 'follow' },
+				requester,
+			);
+			const finalUrl = res.url;
+			if (finalUrl && !/goojara/i.test(finalUrl)) embedUrls.push(finalUrl);
+		} catch {
+			/* skip a bad redirect */
+		}
+	}
+
+	// 6. Dispatch each embed host (mixdrop / dood / … via embedDispatch; wootly TODO).
+	const sources: InternalMediaSource[] = [];
+	const opts: CheerioLoadRequest = { ...requester, extraHeaders: { Referer: base.origin + '/' } };
+	for (const embed of embedUrls) {
+		if (/wootly/i.test(embed)) {
+			ctx.log.debug(`[goojara] wootly embed not yet supported: ${embed}`);
+			continue;
+		}
+		try {
+			const found = await dispatchEmbed(embed, opts, ctx, 'en');
+			if (found.length) sources.push(...found);
+		} catch (error) {
+			ctx.log.debug(`[goojara] Extractor failed for ${embed}: ${(error as Error).message}`);
+		}
+	}
+
+	ctx.log.info(`[goojara] Returning ${sources.length} source(s).`);
+	return sources;
 }

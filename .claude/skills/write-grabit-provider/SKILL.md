@@ -65,6 +65,14 @@ extract). Never jump to puppeteer before ruling out an app-level Referer/cookie/
   `{ html, cookies, cookieMap, userAgent }` (puppeteer on Node; the host injects an RN
   hidden-WebView / FlareSolverr solver via `setChallengeSolver`). Feed the cookies into a
   `CookieJar` for the next hops. Raw `ctx.puppeteer` is still there for network-listener flows.
+- **`ctx.puppeteer` vs `ctx.solveChallenge` (and `env`)**: Reach for **`ctx.puppeteer`** only when
+  you truly need the live `page` object: listening to network requests to capture the media URL, or
+  injecting/interacting directly in the browser. That path is Node only, so **mark the provider
+  `env: "node"` in `manifest.json`** (the engine skips node-only providers in browser/RN). Use
+  **`ctx.solveChallenge`** when you only need the rendered HTML (pass a challenge, read the DOM): it
+  runs everywhere because the host can supply an RN WebView / FlareSolverr solver, so those providers
+  stay `env: "universal"`. If you reach for puppeteer just to grab challenge HTML, prefer
+  `ctx.solveChallenge` instead and keep the provider universal.
 - **Lazy sources** (item 8): return `{ ..., lazy:{ id } }` and export a
   `resolveLazy(id, ctx, requester)` worker; the host resolves the final URL on play. Full contract,
   self-contained-id rule, and server/client flow in the **writing-lazy-sources** skill.

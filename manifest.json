@@ -19,7 +19,7 @@
 			"active": false,
 			"language": "en",
 			"type": "media",
-			"env": "universal",
+			"env": "node",
 			"supportedMediaTypes": ["movie", "serie"],
 			"priority": 100,
 			"dir": "providers/media/en"
@@ -52,7 +52,7 @@
 			"active": false,
 			"language": "en",
 			"type": "media",
-			"env": "universal",
+			"env": "node",
 			"supportedMediaTypes": ["movie", "serie"],
 			"priority": 100,
 			"dir": "providers/media/en"
@@ -151,7 +151,7 @@
 			"active": false,
 			"language": ["es"],
 			"type": "media",
-			"env": "universal",
+			"env": "node",
 			"supportedMediaTypes": ["movie", "serie"],
 			"priority": 100,
 			"dir": "providers/media/es"

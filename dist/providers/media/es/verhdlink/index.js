@@ -12729,13 +12729,13 @@ function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
       var _ref4 = _asyncToGenerator(function* (source) {
-        const url = typeof source.playlist === "string" ? source.playlist : source.playlist[0]?.source;
+        if (source.lazy) return source;
+        const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
         const {
           ok
         } = yield context.xhr.status(url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -12760,7 +12760,6 @@ function _validateSubtitleSources() {
           ok
         } = yield context.xhr.status(source.url, {
           attachUserAgent: true,
-          attachProxy: true,
           headers: source.xhr.headers
         }, requester);
         return ok ? source : null;
@@ -13326,7 +13325,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13359,7 +13358,7 @@ var manifest_default = {
       active: false,
       language: "en",
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/en"
@@ -13458,7 +13457,7 @@ var manifest_default = {
       active: false,
       language: ["es"],
       type: "media",
-      env: "universal",
+      env: "node",
       supportedMediaTypes: ["movie", "serie"],
       priority: 100,
       dir: "providers/media/es"
@@ -13567,8 +13566,7 @@ function _extractStreamwishStreams() {
         "sec-fetch-dest": "iframe",
         "sec-fetch-mode": "navigate",
         "sec-fetch-site": "cross-site",
-        "upgrade-insecure-requests": "1",
-        cookie: void 0
+        "upgrade-insecure-requests": "1"
       }
     };
     const page = yield ctx.cheerio.load(embedURL, opts, ctx.xhr);
@@ -13646,8 +13644,6 @@ function _extractDoodstreamStreams() {
         "sec-fetch-storage-access": "active",
         "sec-fetch-user": "?1",
         "upgrade-insecure-requests": "1",
-        cookie: void 0,
-        // Ensure cookies are not sent with the request
         referer: requestOpts.extraHeaders?.referer ?? embedURL.origin
         // Ensure referer is set for the initial page load
       }
@@ -13734,9 +13730,7 @@ function _extractFilemoonStreams() {
         "sec-fetch-mode": "navigate",
         "sec-fetch-site": "cross-site",
         "sec-fetch-storage-access": "active",
-        "upgrade-insecure-requests": "1",
-        cookie: void 0
-        // Ensure cookies are not sent with the request
+        "upgrade-insecure-requests": "1"
       }
     };
     const page = yield ctx.cheerio.load(embedURL, opts, ctx.xhr);
@@ -13792,9 +13786,7 @@ function _extractMixdropStream() {
       "sec-fetch-site": "cross-site",
       "sec-fetch-storage-access": "active",
       "sec-fetch-user": "?1",
-      "upgrade-insecure-requests": "1",
-      cookie: void 0
-      // Ensure cookies are not sent with the request
+      "upgrade-insecure-requests": "1"
     };
     const iframeOpts = {
       ...requestOpts,
@@ -13855,9 +13847,7 @@ function _extractSupervideoStreams() {
         "Sec-Fetch-Site": "none",
         Priority: "u=0, i",
         Pragma: "no-cache",
-        "Cache-Control": "no-cache",
-        cookie: void 0
-        // Ensure cookies are not sent with the request
+        "Cache-Control": "no-cache"
       }
     };
     const page = yield ctx.cheerio.load(embedURL, opts, ctx.xhr);
@@ -13921,9 +13911,7 @@ function _extractDroploadStreams() {
         "sec-fetch-mode": "navigate",
         "sec-fetch-site": "cross-site",
         "sec-fetch-storage-access": "active",
-        "upgrade-insecure-requests": "1",
-        cookie: void 0
-        // Ensure cookies are not sent with the request
+        "upgrade-insecure-requests": "1"
       }
     };
     const page = yield ctx.cheerio.load(resourceURL, opts, ctx.xhr);
