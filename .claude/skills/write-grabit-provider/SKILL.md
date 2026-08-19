@@ -92,8 +92,10 @@ browser before ruling out an app-level Referer/cookie/Origin/signed-URL 403.
   `stream.ts`; pass any combination to `defineProviderModule`. The manager picks `getLazyStreams`
   over `getStreams` when created with `lazy: true` (or via `manager.getLazyStreams()`), and resolves
   a handle with `manager.resolveLazySource(scheme, id, req)`. Full contract, the self-contained-id
-  rule, the manager flag, and the server/main-server redirect flow are in the
-  **writing-lazy-sources** skill.
+  rule, the manager flag, and the server/client resolve-on-tap flow are in the
+  **writing-lazy-sources** skill. Validate a lazy provider with
+  `test-provider --mode lazy` (lists handles, then resolves one via `resolveLazy`;
+  `--resolve-all` checks every handle).
 - **Comments**: short and simple, **max 2 lines**, only where intent isn't obvious. No verbose
   blocks or heavy JSDoc, and no long dashes (em dashes) or divider lines inside code comments.
 

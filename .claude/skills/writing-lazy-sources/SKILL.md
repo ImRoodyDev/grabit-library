@@ -191,6 +191,26 @@ call, because the scrape server rebuilds the requester from it. `resolveLazy` ge
 proxy, UA, and headers. Keep the proxy on the client so `REFERER_LOCKED`/`IP_LOCKED` sources keep
 their headers.
 
+## TESTING (`--mode lazy`)
+
+Validate the whole lazy flow with the `test-provider` CLI's lazy mode. It lists the handles via
+`getLazyStreams` (fallback `getStreams`), then resolves one through `resolveLazy` — exactly what the
+manager does in lazy mode, so you do not need to stand up a server to check it:
+
+```bash
+# list handles, then resolve the first
+npx test-provider --scheme <scheme> --type movie --tmdb 27205 --mode lazy
+# resolve every handle (proves each id is self-contained)
+npx test-provider --scheme <scheme> --type movie --tmdb 27205 --mode lazy --resolve-all
+# pick a specific handle, and always check series too
+npx test-provider --scheme <scheme> --type serie --tmdb 1396 --season 1 --episode 1 --mode lazy --lazy-index 1
+```
+
+The **Lazy Handles** section must show handles with a `Lazy id` and no playlist; the **Resolved On
+Play** section must show a real `Playlist`. If resolve returns null or the wrong URL, the id is not
+carrying everything `resolveLazy` needs (re-read [the self-contained id rule](#the-one-rule-the-id-must-be-self-contained)).
+Run the eager path too (`--mode streams`) so `getStreams` still works.
+
 ## VALIDATION
 
 When `config.xhr.validateSources` is on, the engine HEAD-checks resolved sources. Lazy handles have
@@ -214,7 +234,8 @@ For personal or educational use you can skip this.
   `lazy: { id }` (self-contained id); `resolveLazy` resolves from id + requester alone and returns a
   normal source or `null`.
 - `getStreams` (eager) stays in `stream.ts`; both are passed to `defineProviderModule` in `index.ts`.
-- Tested end to end with `test-provider` (list handles, then a resolve), and for a server setup the
+- Tested end to end with `test-provider --mode lazy` (handles listed, then resolved to a real
+  playlist) for movie **and** series, and `--mode streams` still passes. For a server setup the
   manager runs with `lazy: true`, the scrape server's resolve endpoint returns a real playlist, and
   the client resolves on tap (JSON, no redirect) and plays. Note the SSRF handling in the `analysis/*.md` note.
 ```

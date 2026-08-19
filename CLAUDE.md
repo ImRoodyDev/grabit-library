@@ -27,9 +27,15 @@ npx create-provider media/en/<scheme>   # nested group folder
 npx test-provider --scheme primewire --type movie --tmdb 27205
 npx test-provider --scheme wyziesubs --media-file ./test/inception.json --mode subtitles
 npx test-provider --scheme primewire --type serie --tmdb 1396 --season 1 --episode 1
+npx test-provider --scheme vixsrc --type movie --tmdb 27205 --mode lazy   # list handles + resolve one
 ```
 
-`--mode` is `streams` (default), `subtitles`, or `both`. Minimal invocations let TMDB fill in missing fields; the `test/*.json` files are ready-made media fixtures. There is **no** `npm test` (the script is a stub) and no lint step — verify changes by running `test-provider`.
+`--mode` is `streams` (default), `subtitles`, `both`, or `lazy`. **Lazy mode** lists the handles via
+`getLazyStreams` (fallback `getStreams`) then resolves one through `resolveLazy` (`--lazy-index <n>`
+to pick, `--resolve-all` for every handle) — the way to verify a `lazy.ts` provider end to end.
+Minimal invocations let TMDB fill in missing fields; the `test/*.json` files are ready-made media
+fixtures. There is **no** `npm test` (the script is a stub) and no lint step — verify changes by
+running `test-provider`.
 
 ## Architecture
 
