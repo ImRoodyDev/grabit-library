@@ -13079,7 +13079,7 @@ var manifest_default = {
     goojara: {
       name: "Goojara",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
       env: "universal",

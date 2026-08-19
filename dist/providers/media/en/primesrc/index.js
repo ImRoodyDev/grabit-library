@@ -12165,6 +12165,23 @@ function extractExtension(url) {
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
   return match ? match[1] : null;
 }
+function extractSetCookies(headers) {
+  if (!headers) return [];
+  const maybeGet = headers.get;
+  if (typeof maybeGet === "function") {
+    const maybeGetAll = headers.getAll;
+    if (typeof maybeGetAll === "function") {
+      const all = maybeGetAll.call(headers, "set-cookie") || maybeGetAll.call(headers, "Set-Cookie");
+      if (Array.isArray(all) && all.length) return all;
+    }
+    const val = maybeGet.call(headers, "set-cookie") ?? maybeGet.call(headers, "Set-Cookie");
+    if (!val) return [];
+    return Array.isArray(val) ? val : [val];
+  }
+  const sc = headers["set-cookie"] ?? headers["Set-Cookie"] ?? headers["setCookie"];
+  if (!sc) return [];
+  return Array.isArray(sc) ? sc : [sc];
+}
 function extractEvalCode(source) {
   const match = EVAL_CODE.exec(source);
   if (!match) return null;
@@ -12545,6 +12562,17 @@ function normalizeHeaders(headers) {
   }
   return result;
 }
+function createCookiesFromSet(headers) {
+  const cookies = extractSetCookies(headers);
+  return cookies.map(cookie => cookie.split(";")[0]).join("; ");
+}
+function joinCookies(existingCookies, newCookies) {
+  if (!existingCookies) return newCookies;
+  const existingSet = new Set(existingCookies.split(";").map(c => c.trim()));
+  const newSet = new Set(newCookies.split(";").map(c => c.trim()));
+  const combined = /* @__PURE__ */new Set([...existingSet, ...newSet]);
+  return Array.from(combined).join("; ");
+}
 function deduplicateArray(array) {
   return Array.from(new Set(array));
 }
@@ -12620,6 +12648,23 @@ function defineProviderModule(_this, manifest, workers) {
     workers: createModuleWorkers(_this, manifest, workers)
   };
 }
+function augmentMediaSource(source, manifest, provider, userAgent) {
+  const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
+  return {
+    ...source,
+    xhr: {
+      ...source.xhr,
+      headers: normalizeHeaders({
+        ...source.xhr?.headers,
+        "User-Agent": userAgent
+      })
+    },
+    format,
+    fileName: `[${manifest.name}][${format.toUpperCase()}] - ${import_iso_639_1.default.getName(source.language)} - ${source.fileName ?? "Source"} `,
+    providerName: manifest.name,
+    scheme: provider.config.scheme
+  };
+}
 function createModuleWorkers(provider, manifest, workers) {
   validateManifestConfiguration(provider, manifest);
   const shouldValidate = provider.config.xhr?.validateSources === true;
@@ -12629,23 +12674,7 @@ function createModuleWorkers(provider, manifest, workers) {
       var _ref = _asyncToGenerator(function* (requester, context) {
         try {
           const sources = yield workers.getStreams(requester, context);
-          const withMeta = sources.map(source => {
-            const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
-            return {
-              ...source,
-              xhr: {
-                ...source.xhr,
-                headers: normalizeHeaders({
-                  ...source.xhr?.headers,
-                  "User-Agent": requester.userAgent
-                })
-              },
-              format,
-              fileName: `[${manifest.name}][${format.toUpperCase()}] - ${import_iso_639_1.default.getName(source.language)} - ${source.fileName ?? "Source"} `,
-              providerName: manifest.name,
-              scheme: provider.config.scheme
-            };
-          });
+          const withMeta = sources.map(source => augmentMediaSource(source, manifest, provider, requester.userAgent));
           const sorted = sortByTargetLanguage(withMeta, requester.targetLanguageISO);
           if (!shouldValidate) return sorted;
           return validateMediaSources(sorted, requester, context);
@@ -12662,8 +12691,29 @@ function createModuleWorkers(provider, manifest, workers) {
         return _ref.apply(this, arguments);
       };
     }()) : void 0,
-    getSubtitles: workers.getSubtitles ? (/*#__PURE__*/function () {
+    // Lazy listing: augment each handle like getStreams but never validate — lazy sources
+    // have no URL yet (resolved on play via resolveLazy).
+    getLazyStreams: workers.getLazyStreams ? (/*#__PURE__*/function () {
       var _ref2 = _asyncToGenerator(function* (requester, context) {
+        try {
+          const sources = yield workers.getLazyStreams(requester, context);
+          const withMeta = sources.map(source => augmentMediaSource(source, manifest, provider, requester.userAgent));
+          return sortByTargetLanguage(withMeta, requester.targetLanguageISO);
+        } catch (error) {
+          const logEntry = describeProviderWorkerError("getLazyStreams", manifest, error);
+          context.log.error(logEntry.summary);
+          if (logEntry.details) {
+            context.log.debug(`Provider ${manifest.name} getLazyStreams details`, logEntry.details);
+          }
+          throw error;
+        }
+      });
+      return function (_x3, _x4) {
+        return _ref2.apply(this, arguments);
+      };
+    }()) : void 0,
+    getSubtitles: workers.getSubtitles ? (/*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(function* (requester, context) {
         try {
           const sources = yield workers.getSubtitles(requester, context);
           const withMeta = sources.map(source => ({
@@ -12691,44 +12741,30 @@ function createModuleWorkers(provider, manifest, workers) {
           throw error;
         }
       });
-      return function (_x3, _x4) {
-        return _ref2.apply(this, arguments);
+      return function (_x5, _x6) {
+        return _ref3.apply(this, arguments);
       };
     }()) : void 0,
     // Lazy resolution: shape the single resolved source like getStreams.
     resolveLazy: workers.resolveLazy ? (/*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(function* (id, context, requester) {
+      var _ref4 = _asyncToGenerator(function* (id, context, requester) {
         const source = yield workers.resolveLazy(id, context, requester);
         if (!source) return null;
-        const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
-        return {
-          ...source,
-          xhr: {
-            ...source.xhr,
-            headers: normalizeHeaders({
-              ...source.xhr?.headers,
-              "User-Agent": requester.userAgent
-            })
-          },
-          format,
-          fileName: `[${manifest.name}][${format.toUpperCase()}] - ${source.fileName ?? "Source"} `,
-          providerName: manifest.name,
-          scheme: provider.config.scheme
-        };
+        return augmentMediaSource(source, manifest, provider, requester.userAgent);
       });
-      return function (_x5, _x6, _x7) {
-        return _ref3.apply(this, arguments);
+      return function (_x7, _x8, _x9) {
+        return _ref4.apply(this, arguments);
       };
     }()) : void 0
   };
 }
-function validateMediaSources(_x8, _x9, _x0) {
+function validateMediaSources(_x0, _x1, _x10) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(function* (source) {
+      var _ref5 = _asyncToGenerator(function* (source) {
         if (source.lazy) return source;
         const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
@@ -12740,21 +12776,21 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x46) {
-        return _ref4.apply(this, arguments);
+      return function (_x57) {
+        return _ref5.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x1, _x10, _x11) {
+function validateSubtitleSources(_x11, _x12, _x13) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
   _validateSubtitleSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref5 = _asyncToGenerator(function* (source) {
+      var _ref6 = _asyncToGenerator(function* (source) {
         if (!source.url) return null;
         const {
           ok
@@ -12764,8 +12800,8 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x47) {
-        return _ref5.apply(this, arguments);
+      return function (_x58) {
+        return _ref6.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
@@ -13366,7 +13402,7 @@ var manifest_default = {
     goojara: {
       name: "Goojara",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
       env: "universal",
@@ -13629,7 +13665,7 @@ var config = {
 var PROVIDER = Provider.create(config);
 
 // providers/extractors/streamwish.ts
-function extractStreamwishStreams(_x12, _x13, _x14, _x15) {
+function extractStreamwishStreams(_x14, _x15, _x16, _x17) {
   return _extractStreamwishStreams.apply(this, arguments);
 } // providers/extractors/doodstream.ts
 function _extractStreamwishStreams() {
@@ -13704,7 +13740,7 @@ function makePlay(token) {
   }
   return `${randomStr}?token=${token}&expiry=${Date.now()}`;
 }
-function extractDoodstreamStreams(_x16, _x17, _x18, _x19) {
+function extractDoodstreamStreams(_x18, _x19, _x20, _x21) {
   return _extractDoodstreamStreams.apply(this, arguments);
 } // providers/extractors/filemoon.ts
 function _extractDoodstreamStreams() {
@@ -13786,7 +13822,7 @@ function _extractDoodstreamStreams() {
   });
   return _extractDoodstreamStreams.apply(this, arguments);
 }
-function extractFilemoonStreams(_x20, _x21, _x22, _x23) {
+function extractFilemoonStreams(_x22, _x23, _x24, _x25) {
   return _extractFilemoonStreams.apply(this, arguments);
 } // providers/extractors/mixdrop.ts
 function _extractFilemoonStreams() {
@@ -13850,7 +13886,7 @@ function _extractFilemoonStreams() {
   });
   return _extractFilemoonStreams.apply(this, arguments);
 }
-function extractMixdropStream(_x24, _x25, _x26, _x27) {
+function extractMixdropStream(_x26, _x27, _x28, _x29) {
   return _extractMixdropStream.apply(this, arguments);
 } // providers/extractors/supervideo.ts
 function _extractMixdropStream() {
@@ -13907,7 +13943,7 @@ function _extractMixdropStream() {
   });
   return _extractMixdropStream.apply(this, arguments);
 }
-function extractSupervideoStreams(_x28, _x29, _x30, _x31) {
+function extractSupervideoStreams(_x30, _x31, _x32, _x33) {
   return _extractSupervideoStreams.apply(this, arguments);
 } // providers/extractors/dropload.ts
 function _extractSupervideoStreams() {
@@ -13967,7 +14003,7 @@ function _extractSupervideoStreams() {
   });
   return _extractSupervideoStreams.apply(this, arguments);
 }
-function extractDroploadStreams(_x32, _x33, _x34, _x35) {
+function extractDroploadStreams(_x34, _x35, _x36, _x37) {
   return _extractDroploadStreams.apply(this, arguments);
 } // providers/extractors/fastream.ts
 function _extractDroploadStreams() {
@@ -14031,9 +14067,9 @@ function _extractDroploadStreams() {
   });
   return _extractDroploadStreams.apply(this, arguments);
 }
-function extractFastreamStreams(_x36, _x37, _x38, _x39) {
+function extractFastreamStreams(_x38, _x39, _x40, _x41) {
   return _extractFastreamStreams.apply(this, arguments);
-} // providers/extractors/embedDispatch.ts
+} // providers/extractors/wootly.ts
 function _extractFastreamStreams() {
   _extractFastreamStreams = _asyncToGenerator(function* (embedURL, requestOpts, ctx, meta) {
     const normalized = new URL(embedURL.href.replace("/e/", "/embed-").replace("/d/", "/embed-"));
@@ -14080,7 +14116,106 @@ function _extractFastreamStreams() {
   });
   return _extractFastreamStreams.apply(this, arguments);
 }
-function dispatchEmbed(_x40, _x41, _x42, _x43) {
+function extractWootlyStream(_x42, _x43, _x44, _x45) {
+  return _extractWootlyStream.apply(this, arguments);
+}
+function _extractWootlyStream() {
+  _extractWootlyStream = _asyncToGenerator(function* (embedURL, requestOpts, ctx, meta) {
+    const landing = yield ctx.xhr.fetch(embedURL, {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      useImpit: false,
+      headers: {
+        Referer: requestOpts.extraHeaders?.Referer ?? embedURL.origin + "/"
+      }
+    }, requestOpts);
+    const landingHtml = yield landing.text();
+    const landingCookies = createCookiesFromSet(landing.headers) || "";
+    const landing$ = ctx.cheerio.$load(landingHtml);
+    const iframeSrc = landing$("iframe").attr("src");
+    if (!iframeSrc) return null;
+    const iframeURL = new URL(iframeSrc, embedURL);
+    const iframeResponse = yield ctx.xhr.fetch(iframeURL, {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      useImpit: false,
+      headers: {
+        cookie: landingCookies,
+        Referer: embedURL.href
+      }
+    }, requestOpts);
+    const iframeCookies = joinCookies(landingCookies, createCookiesFromSet(iframeResponse.headers) || "");
+    const iframeHtml = yield iframeResponse.text();
+    const postResponse = yield ctx.xhr.fetch(iframeURL, {
+      method: "POST",
+      attachUserAgent: true,
+      clean: true,
+      useImpit: false,
+      headers: {
+        cookie: iframeCookies,
+        Referer: iframeURL.href,
+        Origin: iframeURL.origin,
+        "content-type": "application/x-www-form-urlencoded"
+      },
+      body: "qdfx=1"
+    }, requestOpts);
+    const postHtml = yield postResponse.text();
+    const scriptText = `${iframeHtml}
+${postHtml}`;
+    const token = extractValue(scriptText, "tk");
+    const videoId = extractValue(scriptText, "vd");
+    if (!token || !videoId) {
+      ctx.log.warn(`[wootly] Token or video id missing from ${iframeURL.href}`);
+      return null;
+    }
+    for (const endpoint of ["/grabd", "/grabm"]) {
+      const resolveURL = new URL(endpoint, iframeURL.origin);
+      resolveURL.search = new URLSearchParams({
+        t: token,
+        id: videoId
+      }).toString();
+      const response = yield ctx.xhr.fetch(resolveURL, {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        useImpit: false,
+        headers: {
+          cookie: iframeCookies,
+          Referer: iframeURL.href,
+          Origin: iframeURL.origin
+        },
+        redirect: "manual"
+      }, requestOpts);
+      const url = response.headers.get("location") || (yield response.text()).trim();
+      const match = url.match(/https?:\/\/[^\s"'<>]+/i)?.[0];
+      if (match) {
+        return {
+          fileName: `[Wootly] ${meta.fileName ?? "Video"}`,
+          playlist: match,
+          format: "mp4",
+          language: meta.language,
+          xhr: {
+            flags: ["IP_LOCKED"],
+            headers: {
+              Referer: iframeURL.origin + "/"
+            }
+          }
+        };
+      }
+    }
+    return null;
+  });
+  return _extractWootlyStream.apply(this, arguments);
+}
+function extractValue(script, name) {
+  const match = script.match(new RegExp(`(?:var\\s+)?${name}\\s*=\\s*["']?([^;,'"\\s]+)`, "i"));
+  return match?.[1] ?? null;
+}
+
+// providers/extractors/embedDispatch.ts
+function dispatchEmbed(_x46, _x47, _x48, _x49) {
   return _dispatchEmbed.apply(this, arguments);
 } // providers/media/en/primesrc/stream.ts
 function _dispatchEmbed() {
@@ -14111,6 +14246,8 @@ function _dispatchEmbed() {
         out = yield extractDroploadStreams(url, opts, ctx, meta);
       } else if (/fastream|fstream/.test(host)) {
         out = yield extractFastreamStreams(url, opts, ctx, meta);
+      } else if (/wootly/.test(host)) {
+        out = yield extractWootlyStream(url, opts, ctx, meta);
       } else {
         ctx.log.debug(`[dispatch] No extractor for host ${host}, skipping.`);
         return [];
@@ -14126,7 +14263,7 @@ function _dispatchEmbed() {
 }
 var SUPPORTED = /filemoon|moon|streamwish|filelions|lions|swish|wish|mixdrop|dood|supervideo|dropload/i;
 var MAX_EMBEDS = 5;
-function getStreams(_x44, _x45) {
+function getStreams(_x50, _x51) {
   return _getStreams.apply(this, arguments);
 }
 function _getStreams() {
@@ -14219,7 +14356,119 @@ function findUrl(v) {
   return null;
 }
 
+// providers/media/en/primesrc/lazy.ts
+var SUPPORTED2 = /filemoon|moon|streamwish|filelions|lions|swish|wish|mixdrop|dood|supervideo|dropload/i;
+var MAX_EMBEDS2 = 5;
+function getLazyStreams(_x52, _x53) {
+  return _getLazyStreams.apply(this, arguments);
+}
+function _getLazyStreams() {
+  _getLazyStreams = _asyncToGenerator(function* (requester, ctx) {
+    if (requester.media.type === "channel") return [];
+    const base = new URL(PROVIDER.config.baseUrl);
+    const apiUrl = PROVIDER.createResourceURL(requester);
+    const solved = yield ctx.solveChallenge(base, requester, {
+      waitForCookie: "cf_clearance"
+    });
+    const apiHeaders = {
+      Referer: base.origin + "/",
+      "x-requested-with": "XMLHttpRequest",
+      ...(solved.cookies ? {
+        cookie: solved.cookies
+      } : {}),
+      ...(solved.userAgent ? {
+        "User-Agent": solved.userAgent
+      } : {})
+    };
+    const data = yield ctx.xhr.fetchResponse(apiUrl, {
+      method: "GET",
+      clean: true,
+      headers: apiHeaders
+    }, requester).catch(() => null);
+    const servers = Array.isArray(data?.servers) ? data.servers : [];
+    const seenHost = /* @__PURE__ */new Set();
+    const picks = servers.filter(server => {
+      if (!server?.key || !SUPPORTED2.test(server.name || "")) return false;
+      const host = String(server.name).toLowerCase();
+      if (seenHost.has(host)) return false;
+      seenHost.add(host);
+      return true;
+    });
+    const handles = [];
+    for (const server of picks.slice(0, MAX_EMBEDS2)) {
+      try {
+        const resolved = yield ctx.xhr.fetchResponse(new URL(`/api/v1/l?key=${encodeURIComponent(server.key)}`, base), {
+          method: "GET",
+          clean: true,
+          headers: apiHeaders
+        }, requester);
+        const url = findUrl2(resolved);
+        if (url && isSupportedEmbed(url)) handles.push({
+          name: server.name,
+          url
+        });
+      } catch {}
+    }
+    return handles.map(handle => ({
+      fileName: `${handle.name} Server`,
+      language: "en",
+      lazy: {
+        id: encodeURIComponent(JSON.stringify(handle)),
+        label: handle.name
+      },
+      xhr: {
+        flags: [],
+        headers: {}
+      }
+    }));
+  });
+  return _getLazyStreams.apply(this, arguments);
+}
+function resolveLazy(_x54, _x55, _x56) {
+  return _resolveLazy.apply(this, arguments);
+}
+function _resolveLazy() {
+  _resolveLazy = _asyncToGenerator(function* (id, ctx, requester) {
+    let handle;
+    try {
+      handle = JSON.parse(decodeURIComponent(id));
+    } catch {
+      return null;
+    }
+    if (!handle?.name || !isSupportedEmbed(handle.url)) return null;
+    const opts = {
+      ...requester,
+      extraHeaders: {
+        Referer: new URL(PROVIDER.config.baseUrl).origin + "/"
+      }
+    };
+    const sources = yield dispatchEmbed(handle.url, opts, ctx, "en").catch(() => []);
+    return sources[0] ?? null;
+  });
+  return _resolveLazy.apply(this, arguments);
+}
+function isSupportedEmbed(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && SUPPORTED2.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+function findUrl2(value) {
+  if (typeof value === "string") return /^https?:\/\//.test(value) ? value : null;
+  if (value && typeof value === "object") {
+    for (const key of Object.keys(value)) {
+      const url = findUrl2(value[key]);
+      if (url) return url;
+    }
+  }
+  return null;
+}
+
 // providers/media/en/primesrc/index.ts
 var index_default = defineProviderModule(PROVIDER, manifest_default.providers["primesrc"], {
-  getStreams
+  getStreams,
+  getLazyStreams,
+  resolveLazy
 });

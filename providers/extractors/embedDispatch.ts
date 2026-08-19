@@ -6,6 +6,7 @@ import { extractMixdropStream } from './mixdrop';
 import { extractSupervideoStreams } from './supervideo';
 import { extractDroploadStreams } from './dropload';
 import { extractFastreamStreams } from './fastream';
+import { extractWootlyStream } from './wootly';
 
 /**
  * Routes a video-host embed URL to the matching grabit extractor and normalises
@@ -44,6 +45,8 @@ export async function dispatchEmbed(
 			out = await extractDroploadStreams(url, opts, ctx, meta);
 		} else if (/fastream|fstream/.test(host)) {
 			out = await extractFastreamStreams(url, opts, ctx, meta);
+		} else if (/wootly/.test(host)) {
+			out = await extractWootlyStream(url, opts, ctx, meta);
 		} else {
 			ctx.log.debug(`[dispatch] No extractor for host ${host}, skipping.`);
 			return [];

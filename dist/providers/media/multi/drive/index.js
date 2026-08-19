@@ -12450,6 +12450,23 @@ function defineProviderModule(_this, manifest, workers) {
     workers: createModuleWorkers(_this, manifest, workers)
   };
 }
+function augmentMediaSource(source, manifest, provider, userAgent) {
+  const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
+  return {
+    ...source,
+    xhr: {
+      ...source.xhr,
+      headers: normalizeHeaders({
+        ...source.xhr?.headers,
+        "User-Agent": userAgent
+      })
+    },
+    format,
+    fileName: `[${manifest.name}][${format.toUpperCase()}] - ${import_iso_639_1.default.getName(source.language)} - ${source.fileName ?? "Source"} `,
+    providerName: manifest.name,
+    scheme: provider.config.scheme
+  };
+}
 function createModuleWorkers(provider, manifest, workers) {
   validateManifestConfiguration(provider, manifest);
   const shouldValidate = provider.config.xhr?.validateSources === true;
@@ -12459,23 +12476,7 @@ function createModuleWorkers(provider, manifest, workers) {
       var _ref = _asyncToGenerator(function* (requester, context) {
         try {
           const sources = yield workers.getStreams(requester, context);
-          const withMeta = sources.map(source => {
-            const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
-            return {
-              ...source,
-              xhr: {
-                ...source.xhr,
-                headers: normalizeHeaders({
-                  ...source.xhr?.headers,
-                  "User-Agent": requester.userAgent
-                })
-              },
-              format,
-              fileName: `[${manifest.name}][${format.toUpperCase()}] - ${import_iso_639_1.default.getName(source.language)} - ${source.fileName ?? "Source"} `,
-              providerName: manifest.name,
-              scheme: provider.config.scheme
-            };
-          });
+          const withMeta = sources.map(source => augmentMediaSource(source, manifest, provider, requester.userAgent));
           const sorted = sortByTargetLanguage(withMeta, requester.targetLanguageISO);
           if (!shouldValidate) return sorted;
           return validateMediaSources(sorted, requester, context);
@@ -12492,8 +12493,29 @@ function createModuleWorkers(provider, manifest, workers) {
         return _ref.apply(this, arguments);
       };
     }()) : void 0,
-    getSubtitles: workers.getSubtitles ? (/*#__PURE__*/function () {
+    // Lazy listing: augment each handle like getStreams but never validate — lazy sources
+    // have no URL yet (resolved on play via resolveLazy).
+    getLazyStreams: workers.getLazyStreams ? (/*#__PURE__*/function () {
       var _ref2 = _asyncToGenerator(function* (requester, context) {
+        try {
+          const sources = yield workers.getLazyStreams(requester, context);
+          const withMeta = sources.map(source => augmentMediaSource(source, manifest, provider, requester.userAgent));
+          return sortByTargetLanguage(withMeta, requester.targetLanguageISO);
+        } catch (error) {
+          const logEntry = describeProviderWorkerError("getLazyStreams", manifest, error);
+          context.log.error(logEntry.summary);
+          if (logEntry.details) {
+            context.log.debug(`Provider ${manifest.name} getLazyStreams details`, logEntry.details);
+          }
+          throw error;
+        }
+      });
+      return function (_x3, _x4) {
+        return _ref2.apply(this, arguments);
+      };
+    }()) : void 0,
+    getSubtitles: workers.getSubtitles ? (/*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(function* (requester, context) {
         try {
           const sources = yield workers.getSubtitles(requester, context);
           const withMeta = sources.map(source => ({
@@ -12521,44 +12543,30 @@ function createModuleWorkers(provider, manifest, workers) {
           throw error;
         }
       });
-      return function (_x3, _x4) {
-        return _ref2.apply(this, arguments);
+      return function (_x5, _x6) {
+        return _ref3.apply(this, arguments);
       };
     }()) : void 0,
     // Lazy resolution: shape the single resolved source like getStreams.
     resolveLazy: workers.resolveLazy ? (/*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(function* (id, context, requester) {
+      var _ref4 = _asyncToGenerator(function* (id, context, requester) {
         const source = yield workers.resolveLazy(id, context, requester);
         if (!source) return null;
-        const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
-        return {
-          ...source,
-          xhr: {
-            ...source.xhr,
-            headers: normalizeHeaders({
-              ...source.xhr?.headers,
-              "User-Agent": requester.userAgent
-            })
-          },
-          format,
-          fileName: `[${manifest.name}][${format.toUpperCase()}] - ${source.fileName ?? "Source"} `,
-          providerName: manifest.name,
-          scheme: provider.config.scheme
-        };
+        return augmentMediaSource(source, manifest, provider, requester.userAgent);
       });
-      return function (_x5, _x6, _x7) {
-        return _ref3.apply(this, arguments);
+      return function (_x7, _x8, _x9) {
+        return _ref4.apply(this, arguments);
       };
     }()) : void 0
   };
 }
-function validateMediaSources(_x8, _x9, _x0) {
+function validateMediaSources(_x0, _x1, _x10) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(function* (source) {
+      var _ref5 = _asyncToGenerator(function* (source) {
         if (source.lazy) return source;
         const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
@@ -12570,21 +12578,21 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x62) {
-        return _ref4.apply(this, arguments);
+      return function (_x80) {
+        return _ref5.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x1, _x10, _x11) {
+function validateSubtitleSources(_x11, _x12, _x13) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
   _validateSubtitleSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref5 = _asyncToGenerator(function* (source) {
+      var _ref6 = _asyncToGenerator(function* (source) {
         if (!source.url) return null;
         const {
           ok
@@ -12594,8 +12602,8 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x63) {
-        return _ref5.apply(this, arguments);
+      return function (_x81) {
+        return _ref6.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
@@ -13125,7 +13133,7 @@ var manifest_default = {
     goojara: {
       name: "Goojara",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
       env: "universal",
@@ -13411,7 +13419,7 @@ function getRedirectedPixelDrainUrl(...htmlSources) {
   }
   return "";
 }
-function fetchTextWithCloudflareFallback(_x12, _x13, _x14, _x15, _x16) {
+function fetchTextWithCloudflareFallback(_x14, _x15, _x16, _x17, _x18) {
   return _fetchTextWithCloudflareFallback.apply(this, arguments);
 }
 function _fetchTextWithCloudflareFallback() {
@@ -13451,7 +13459,7 @@ function _fetchTextWithCloudflareFallback() {
   });
   return _fetchTextWithCloudflareFallback.apply(this, arguments);
 }
-function extractHubcloudStreams(_x17, _x18, _x19, _x20) {
+function extractHubcloudStreams(_x19, _x20, _x21, _x22) {
   return _extractHubcloudStreams.apply(this, arguments);
 }
 function _extractHubcloudStreams() {
@@ -13471,7 +13479,7 @@ function _extractHubcloudStreams() {
   });
   return _extractHubcloudStreams.apply(this, arguments);
 }
-function handleSearchRecover(_x21, _x22, _x23, _x24, _x25, _x26) {
+function handleSearchRecover(_x23, _x24, _x25, _x26, _x27, _x28) {
   return _handleSearchRecover.apply(this, arguments);
 }
 function _handleSearchRecover() {
@@ -13535,7 +13543,7 @@ function _handleSearchRecover() {
   });
   return _handleSearchRecover.apply(this, arguments);
 }
-function resolveDrivePage(_x27, _x28, _x29, _x30, _x31, _x32) {
+function resolveDrivePage(_x29, _x30, _x31, _x32, _x33, _x34) {
   return _resolveDrivePage.apply(this, arguments);
 }
 function _resolveDrivePage() {
@@ -13628,7 +13636,7 @@ function _resolveDrivePage() {
   });
   return _resolveDrivePage.apply(this, arguments);
 }
-function resolveNestedHubcloud(_x33, _x34, _x35, _x36, _x37) {
+function resolveNestedHubcloud(_x35, _x36, _x37, _x38, _x39) {
   return _resolveNestedHubcloud.apply(this, arguments);
 }
 function _resolveNestedHubcloud() {
@@ -13680,7 +13688,7 @@ function guessFormat(url) {
 
 // providers/extractors/gdflix.ts
 var GDFLIX_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0";
-function fetchTextWithCloudflareFallback2(_x38, _x39, _x40, _x41) {
+function fetchTextWithCloudflareFallback2(_x40, _x41, _x42, _x43) {
   return _fetchTextWithCloudflareFallback2.apply(this, arguments);
 }
 function _fetchTextWithCloudflareFallback2() {
@@ -13717,7 +13725,7 @@ function _fetchTextWithCloudflareFallback2() {
   });
   return _fetchTextWithCloudflareFallback2.apply(this, arguments);
 }
-function extractGdflixStreams(_x42, _x43, _x44, _x45) {
+function extractGdflixStreams(_x44, _x45, _x46, _x47) {
   return _extractGdflixStreams.apply(this, arguments);
 }
 function _extractGdflixStreams() {
@@ -13854,7 +13862,7 @@ function pickBestPost(posts, media, minScore = 45) {
 
 // providers/media/multi/drive/stream.ts
 var MAX_CANDIDATES = 3;
-function getStreams(_x46, _x47) {
+function getStreams(_x48, _x49) {
   return _getStreams.apply(this, arguments);
 }
 function _getStreams() {
@@ -13917,7 +13925,7 @@ function _getStreams() {
   });
   return _getStreams.apply(this, arguments);
 }
-function searchPosts(_x48, _x49, _x50) {
+function searchPosts(_x50, _x51, _x52) {
   return _searchPosts.apply(this, arguments);
 }
 function _searchPosts() {
@@ -13955,7 +13963,7 @@ function _searchPosts() {
   });
   return _searchPosts.apply(this, arguments);
 }
-function getCandidateLinks(_x51, _x52, _x53, _x54) {
+function getCandidateLinks(_x53, _x54, _x55, _x56) {
   return _getCandidateLinks.apply(this, arguments);
 }
 function _getCandidateLinks() {
@@ -13997,7 +14005,7 @@ function _getCandidateLinks() {
   });
   return _getCandidateLinks.apply(this, arguments);
 }
-function resolveDriveLink(_x55, _x56, _x57, _x58) {
+function resolveDriveLink(_x57, _x58, _x59, _x60) {
   return _resolveDriveLink.apply(this, arguments);
 }
 function _resolveDriveLink() {
@@ -14049,9 +14057,9 @@ function _resolveDriveLink() {
   });
   return _resolveDriveLink.apply(this, arguments);
 }
-function getText(_x59, _x60, _x61) {
+function getText(_x61, _x62, _x63) {
   return _getText.apply(this, arguments);
-} // providers/media/multi/drive/index.ts
+} // providers/media/multi/drive/lazy.ts
 function _getText() {
   _getText = _asyncToGenerator(function* (url, requester, ctx) {
     const res = yield ctx.xhr.fetch(url, {
@@ -14066,6 +14074,178 @@ function _getText() {
   });
   return _getText.apply(this, arguments);
 }
+function getLazyStreams(_x64, _x65) {
+  return _getLazyStreams.apply(this, arguments);
+}
+function _getLazyStreams() {
+  _getLazyStreams = _asyncToGenerator(function* (requester, ctx) {
+    if (requester.media.type === "channel") return [];
+    const pageOpt = {
+      ...requester,
+      followRedirects: true,
+      extraHeaders: {
+        "accept-language": "en-US,en;q=0.9"
+      }
+    };
+    let posts = [];
+    for (const url of PROVIDER.createResourceUrls(requester)) {
+      posts = yield searchPosts2(url, requester, ctx);
+      if (posts.length) break;
+    }
+    const best = pickBestPost(posts, requester.media);
+    if (!best) return [];
+    const candidates = yield getCandidateLinks2(best.post.link, requester, ctx, pageOpt);
+    return candidates.map(candidate => ({
+      fileName: `${best.post.title} ${candidate.label}`.trim(),
+      language: "hi",
+      lazy: {
+        id: encodeURIComponent(JSON.stringify({
+          ...candidate,
+          title: best.post.title
+        })),
+        label: candidate.label
+      },
+      xhr: {
+        flags: [],
+        headers: {}
+      }
+    }));
+  });
+  return _getLazyStreams.apply(this, arguments);
+}
+function resolveLazy(_x66, _x67, _x68) {
+  return _resolveLazy.apply(this, arguments);
+}
+function _resolveLazy() {
+  _resolveLazy = _asyncToGenerator(function* (id, ctx, requester) {
+    let handle;
+    try {
+      handle = JSON.parse(decodeURIComponent(id));
+    } catch {
+      return null;
+    }
+    if (!handle?.title || !handle.link || !isAllowedLink(handle.link)) return null;
+    const pageOpt = {
+      ...requester,
+      followRedirects: true,
+      extraHeaders: {
+        "accept-language": "en-US,en;q=0.9"
+      }
+    };
+    try {
+      const resolved = yield resolveDriveLink2(handle.link, requester, ctx, pageOpt);
+      if (!resolved) return null;
+      const meta = {
+        fileName: `${handle.title} ${handle.label}`.trim(),
+        quality: handle.quality,
+        language: "hi"
+      };
+      const sources = resolved.kind === "gdflix" ? yield extractGdflixStreams(resolved.url, requester, ctx, meta) : yield extractHubcloudStreams(resolved.url, requester, ctx, {
+        ...meta,
+        matchTokens: titleTokens(requester.media.title)
+      });
+      return sources[0] ?? null;
+    } catch {
+      return null;
+    }
+  });
+  return _resolveLazy.apply(this, arguments);
+}
+function searchPosts2(_x69, _x70, _x71) {
+  return _searchPosts2.apply(this, arguments);
+}
+function _searchPosts2() {
+  _searchPosts2 = _asyncToGenerator(function* (url, requester, ctx) {
+    try {
+      const json = yield ctx.xhr.fetchResponse(url, {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        headers: {
+          Referer: PROVIDER.config.baseUrl + "/"
+        }
+      }, requester);
+      return (Array.isArray(json?.hits) ? json.hits : []).map(hit => hit.document || {}).map(doc => ({
+        title: String(doc.post_title || "").replace(/Download/gi, "").trim(),
+        link: String(doc.permalink || ""),
+        image: String(doc.post_thumbnail || "")
+      })).filter(post => post.title && post.link);
+    } catch {
+      return [];
+    }
+  });
+  return _searchPosts2.apply(this, arguments);
+}
+function getCandidateLinks2(_x72, _x73, _x74, _x75) {
+  return _getCandidateLinks2.apply(this, arguments);
+}
+function _getCandidateLinks2() {
+  _getCandidateLinks2 = _asyncToGenerator(function* (link, requester, ctx, pageOpt) {
+    const {
+      $
+    } = yield ctx.cheerio.load(new URL(link, `${PROVIDER.config.baseUrl}/`), pageOpt, ctx.xhr);
+    const media = requester.media;
+    const candidates = [];
+    $("h5 a, a").each((_, element) => {
+      const text = $(element).text();
+      if (!/\b(480p|720p|1080p|2160p|4k)\b/i.test(text) || /zip/i.test(text)) return;
+      const href = $(element).attr("href") || "";
+      if (!isAllowedLink(href)) return;
+      const headingText = $(element).parent("h5").prev().text() || $(element).closest("h5,h4,p").prev().text() || text;
+      if (media.type === "serie") {
+        const season = getSeasonFromText(headingText) ?? getSeasonFromText(text);
+        if (season != null && season !== Number(media.season)) return;
+      }
+      const quality = text.match(/\b(480p|720p|1080p|2160p|4k)\b/i)?.[0] || detectQuality(text);
+      candidates.push({
+        quality,
+        link: href,
+        label: quality
+      });
+    });
+    const seen = /* @__PURE__ */new Set();
+    return candidates.filter(candidate => !seen.has(candidate.link) && seen.add(candidate.link));
+  });
+  return _getCandidateLinks2.apply(this, arguments);
+}
+function resolveDriveLink2(_x76, _x77, _x78, _x79) {
+  return _resolveDriveLink2.apply(this, arguments);
+}
+function _resolveDriveLink2() {
+  _resolveDriveLink2 = _asyncToGenerator(function* (link, requester, ctx, pageOpt) {
+    if (!isAllowedLink(link)) return null;
+    let url = new URL(link, `${PROVIDER.config.baseUrl}/`).href;
+    try {
+      const {
+        $
+      } = yield ctx.cheerio.load(new URL(url), pageOpt, ctx.xhr);
+      const host = $('a:contains("HubCloud")').attr("href") || $('a:contains("GDFlix"),a:contains("GDFLIX")').attr("href");
+      if (host && isAllowedLink(host)) url = new URL(host, url).href;
+    } catch {}
+    if (/gdflix/i.test(url)) return {
+      kind: "gdflix",
+      url
+    };
+    if (/hubcloud/i.test(url)) return {
+      kind: "hubcloud",
+      url
+    };
+    return null;
+  });
+  return _resolveDriveLink2.apply(this, arguments);
+}
+function isAllowedLink(value) {
+  try {
+    const url = new URL(value, PROVIDER.config.baseUrl);
+    return url.protocol === "https:" && /hubcloud|hubdrive|gdflix|search-recover|\/archives\//i.test(url.hostname + url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+// providers/media/multi/drive/index.ts
 var index_default = defineProviderModule(PROVIDER, manifest_default.providers["drive"], {
-  getStreams
+  getStreams,
+  getLazyStreams,
+  resolveLazy
 });

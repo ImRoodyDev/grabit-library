@@ -12165,6 +12165,23 @@ function extractExtension(url) {
   const match = url.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
   return match ? match[1] : null;
 }
+function extractSetCookies(headers) {
+  if (!headers) return [];
+  const maybeGet = headers.get;
+  if (typeof maybeGet === "function") {
+    const maybeGetAll = headers.getAll;
+    if (typeof maybeGetAll === "function") {
+      const all = maybeGetAll.call(headers, "set-cookie") || maybeGetAll.call(headers, "Set-Cookie");
+      if (Array.isArray(all) && all.length) return all;
+    }
+    const val = maybeGet.call(headers, "set-cookie") ?? maybeGet.call(headers, "Set-Cookie");
+    if (!val) return [];
+    return Array.isArray(val) ? val : [val];
+  }
+  const sc = headers["set-cookie"] ?? headers["Set-Cookie"] ?? headers["setCookie"];
+  if (!sc) return [];
+  return Array.isArray(sc) ? sc : [sc];
+}
 function extractEvalCode(source) {
   const match = EVAL_CODE.exec(source);
   if (!match) return null;
@@ -12545,6 +12562,17 @@ function normalizeHeaders(headers) {
   }
   return result;
 }
+function createCookiesFromSet(headers) {
+  const cookies = extractSetCookies(headers);
+  return cookies.map(cookie => cookie.split(";")[0]).join("; ");
+}
+function joinCookies(existingCookies, newCookies) {
+  if (!existingCookies) return newCookies;
+  const existingSet = new Set(existingCookies.split(";").map(c => c.trim()));
+  const newSet = new Set(newCookies.split(";").map(c => c.trim()));
+  const combined = /* @__PURE__ */new Set([...existingSet, ...newSet]);
+  return Array.from(combined).join("; ");
+}
 function deduplicateArray(array) {
   return Array.from(new Set(array));
 }
@@ -12620,6 +12648,23 @@ function defineProviderModule(_this, manifest, workers) {
     workers: createModuleWorkers(_this, manifest, workers)
   };
 }
+function augmentMediaSource(source, manifest, provider, userAgent) {
+  const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
+  return {
+    ...source,
+    xhr: {
+      ...source.xhr,
+      headers: normalizeHeaders({
+        ...source.xhr?.headers,
+        "User-Agent": userAgent
+      })
+    },
+    format,
+    fileName: `[${manifest.name}][${format.toUpperCase()}] - ${import_iso_639_1.default.getName(source.language)} - ${source.fileName ?? "Source"} `,
+    providerName: manifest.name,
+    scheme: provider.config.scheme
+  };
+}
 function createModuleWorkers(provider, manifest, workers) {
   validateManifestConfiguration(provider, manifest);
   const shouldValidate = provider.config.xhr?.validateSources === true;
@@ -12629,23 +12674,7 @@ function createModuleWorkers(provider, manifest, workers) {
       var _ref = _asyncToGenerator(function* (requester, context) {
         try {
           const sources = yield workers.getStreams(requester, context);
-          const withMeta = sources.map(source => {
-            const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
-            return {
-              ...source,
-              xhr: {
-                ...source.xhr,
-                headers: normalizeHeaders({
-                  ...source.xhr?.headers,
-                  "User-Agent": requester.userAgent
-                })
-              },
-              format,
-              fileName: `[${manifest.name}][${format.toUpperCase()}] - ${import_iso_639_1.default.getName(source.language)} - ${source.fileName ?? "Source"} `,
-              providerName: manifest.name,
-              scheme: provider.config.scheme
-            };
-          });
+          const withMeta = sources.map(source => augmentMediaSource(source, manifest, provider, requester.userAgent));
           const sorted = sortByTargetLanguage(withMeta, requester.targetLanguageISO);
           if (!shouldValidate) return sorted;
           return validateMediaSources(sorted, requester, context);
@@ -12662,8 +12691,29 @@ function createModuleWorkers(provider, manifest, workers) {
         return _ref.apply(this, arguments);
       };
     }()) : void 0,
-    getSubtitles: workers.getSubtitles ? (/*#__PURE__*/function () {
+    // Lazy listing: augment each handle like getStreams but never validate — lazy sources
+    // have no URL yet (resolved on play via resolveLazy).
+    getLazyStreams: workers.getLazyStreams ? (/*#__PURE__*/function () {
       var _ref2 = _asyncToGenerator(function* (requester, context) {
+        try {
+          const sources = yield workers.getLazyStreams(requester, context);
+          const withMeta = sources.map(source => augmentMediaSource(source, manifest, provider, requester.userAgent));
+          return sortByTargetLanguage(withMeta, requester.targetLanguageISO);
+        } catch (error) {
+          const logEntry = describeProviderWorkerError("getLazyStreams", manifest, error);
+          context.log.error(logEntry.summary);
+          if (logEntry.details) {
+            context.log.debug(`Provider ${manifest.name} getLazyStreams details`, logEntry.details);
+          }
+          throw error;
+        }
+      });
+      return function (_x3, _x4) {
+        return _ref2.apply(this, arguments);
+      };
+    }()) : void 0,
+    getSubtitles: workers.getSubtitles ? (/*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(function* (requester, context) {
         try {
           const sources = yield workers.getSubtitles(requester, context);
           const withMeta = sources.map(source => ({
@@ -12691,44 +12741,30 @@ function createModuleWorkers(provider, manifest, workers) {
           throw error;
         }
       });
-      return function (_x3, _x4) {
-        return _ref2.apply(this, arguments);
+      return function (_x5, _x6) {
+        return _ref3.apply(this, arguments);
       };
     }()) : void 0,
     // Lazy resolution: shape the single resolved source like getStreams.
     resolveLazy: workers.resolveLazy ? (/*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(function* (id, context, requester) {
+      var _ref4 = _asyncToGenerator(function* (id, context, requester) {
         const source = yield workers.resolveLazy(id, context, requester);
         if (!source) return null;
-        const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
-        return {
-          ...source,
-          xhr: {
-            ...source.xhr,
-            headers: normalizeHeaders({
-              ...source.xhr?.headers,
-              "User-Agent": requester.userAgent
-            })
-          },
-          format,
-          fileName: `[${manifest.name}][${format.toUpperCase()}] - ${source.fileName ?? "Source"} `,
-          providerName: manifest.name,
-          scheme: provider.config.scheme
-        };
+        return augmentMediaSource(source, manifest, provider, requester.userAgent);
       });
-      return function (_x5, _x6, _x7) {
-        return _ref3.apply(this, arguments);
+      return function (_x7, _x8, _x9) {
+        return _ref4.apply(this, arguments);
       };
     }()) : void 0
   };
 }
-function validateMediaSources(_x8, _x9, _x0) {
+function validateMediaSources(_x0, _x1, _x10) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(function* (source) {
+      var _ref5 = _asyncToGenerator(function* (source) {
         if (source.lazy) return source;
         const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
@@ -12740,21 +12776,21 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x46) {
-        return _ref4.apply(this, arguments);
+      return function (_x65) {
+        return _ref5.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x1, _x10, _x11) {
+function validateSubtitleSources(_x11, _x12, _x13) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
   _validateSubtitleSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref5 = _asyncToGenerator(function* (source) {
+      var _ref6 = _asyncToGenerator(function* (source) {
         if (!source.url) return null;
         const {
           ok
@@ -12764,8 +12800,8 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x47) {
-        return _ref5.apply(this, arguments);
+      return function (_x66) {
+        return _ref6.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
@@ -13366,7 +13402,7 @@ var manifest_default = {
     goojara: {
       name: "Goojara",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
       env: "universal",
@@ -13620,7 +13656,7 @@ var config = {
 var PROVIDER = Provider.create(config);
 
 // providers/extractors/streamwish.ts
-function extractStreamwishStreams(_x12, _x13, _x14, _x15) {
+function extractStreamwishStreams(_x14, _x15, _x16, _x17) {
   return _extractStreamwishStreams.apply(this, arguments);
 } // providers/extractors/doodstream.ts
 function _extractStreamwishStreams() {
@@ -13695,7 +13731,7 @@ function makePlay(token) {
   }
   return `${randomStr}?token=${token}&expiry=${Date.now()}`;
 }
-function extractDoodstreamStreams(_x16, _x17, _x18, _x19) {
+function extractDoodstreamStreams(_x18, _x19, _x20, _x21) {
   return _extractDoodstreamStreams.apply(this, arguments);
 } // providers/extractors/filemoon.ts
 function _extractDoodstreamStreams() {
@@ -13777,7 +13813,7 @@ function _extractDoodstreamStreams() {
   });
   return _extractDoodstreamStreams.apply(this, arguments);
 }
-function extractFilemoonStreams(_x20, _x21, _x22, _x23) {
+function extractFilemoonStreams(_x22, _x23, _x24, _x25) {
   return _extractFilemoonStreams.apply(this, arguments);
 } // providers/extractors/mixdrop.ts
 function _extractFilemoonStreams() {
@@ -13841,7 +13877,7 @@ function _extractFilemoonStreams() {
   });
   return _extractFilemoonStreams.apply(this, arguments);
 }
-function extractMixdropStream(_x24, _x25, _x26, _x27) {
+function extractMixdropStream(_x26, _x27, _x28, _x29) {
   return _extractMixdropStream.apply(this, arguments);
 } // providers/extractors/supervideo.ts
 function _extractMixdropStream() {
@@ -13898,7 +13934,7 @@ function _extractMixdropStream() {
   });
   return _extractMixdropStream.apply(this, arguments);
 }
-function extractSupervideoStreams(_x28, _x29, _x30, _x31) {
+function extractSupervideoStreams(_x30, _x31, _x32, _x33) {
   return _extractSupervideoStreams.apply(this, arguments);
 } // providers/extractors/dropload.ts
 function _extractSupervideoStreams() {
@@ -13958,7 +13994,7 @@ function _extractSupervideoStreams() {
   });
   return _extractSupervideoStreams.apply(this, arguments);
 }
-function extractDroploadStreams(_x32, _x33, _x34, _x35) {
+function extractDroploadStreams(_x34, _x35, _x36, _x37) {
   return _extractDroploadStreams.apply(this, arguments);
 } // providers/extractors/fastream.ts
 function _extractDroploadStreams() {
@@ -14022,9 +14058,9 @@ function _extractDroploadStreams() {
   });
   return _extractDroploadStreams.apply(this, arguments);
 }
-function extractFastreamStreams(_x36, _x37, _x38, _x39) {
+function extractFastreamStreams(_x38, _x39, _x40, _x41) {
   return _extractFastreamStreams.apply(this, arguments);
-} // providers/extractors/embedDispatch.ts
+} // providers/extractors/wootly.ts
 function _extractFastreamStreams() {
   _extractFastreamStreams = _asyncToGenerator(function* (embedURL, requestOpts, ctx, meta) {
     const normalized = new URL(embedURL.href.replace("/e/", "/embed-").replace("/d/", "/embed-"));
@@ -14071,7 +14107,106 @@ function _extractFastreamStreams() {
   });
   return _extractFastreamStreams.apply(this, arguments);
 }
-function dispatchEmbed(_x40, _x41, _x42, _x43) {
+function extractWootlyStream(_x42, _x43, _x44, _x45) {
+  return _extractWootlyStream.apply(this, arguments);
+}
+function _extractWootlyStream() {
+  _extractWootlyStream = _asyncToGenerator(function* (embedURL, requestOpts, ctx, meta) {
+    const landing = yield ctx.xhr.fetch(embedURL, {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      useImpit: false,
+      headers: {
+        Referer: requestOpts.extraHeaders?.Referer ?? embedURL.origin + "/"
+      }
+    }, requestOpts);
+    const landingHtml = yield landing.text();
+    const landingCookies = createCookiesFromSet(landing.headers) || "";
+    const landing$ = ctx.cheerio.$load(landingHtml);
+    const iframeSrc = landing$("iframe").attr("src");
+    if (!iframeSrc) return null;
+    const iframeURL = new URL(iframeSrc, embedURL);
+    const iframeResponse = yield ctx.xhr.fetch(iframeURL, {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      useImpit: false,
+      headers: {
+        cookie: landingCookies,
+        Referer: embedURL.href
+      }
+    }, requestOpts);
+    const iframeCookies = joinCookies(landingCookies, createCookiesFromSet(iframeResponse.headers) || "");
+    const iframeHtml = yield iframeResponse.text();
+    const postResponse = yield ctx.xhr.fetch(iframeURL, {
+      method: "POST",
+      attachUserAgent: true,
+      clean: true,
+      useImpit: false,
+      headers: {
+        cookie: iframeCookies,
+        Referer: iframeURL.href,
+        Origin: iframeURL.origin,
+        "content-type": "application/x-www-form-urlencoded"
+      },
+      body: "qdfx=1"
+    }, requestOpts);
+    const postHtml = yield postResponse.text();
+    const scriptText = `${iframeHtml}
+${postHtml}`;
+    const token = extractValue(scriptText, "tk");
+    const videoId = extractValue(scriptText, "vd");
+    if (!token || !videoId) {
+      ctx.log.warn(`[wootly] Token or video id missing from ${iframeURL.href}`);
+      return null;
+    }
+    for (const endpoint of ["/grabd", "/grabm"]) {
+      const resolveURL = new URL(endpoint, iframeURL.origin);
+      resolveURL.search = new URLSearchParams({
+        t: token,
+        id: videoId
+      }).toString();
+      const response = yield ctx.xhr.fetch(resolveURL, {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        useImpit: false,
+        headers: {
+          cookie: iframeCookies,
+          Referer: iframeURL.href,
+          Origin: iframeURL.origin
+        },
+        redirect: "manual"
+      }, requestOpts);
+      const url = response.headers.get("location") || (yield response.text()).trim();
+      const match = url.match(/https?:\/\/[^\s"'<>]+/i)?.[0];
+      if (match) {
+        return {
+          fileName: `[Wootly] ${meta.fileName ?? "Video"}`,
+          playlist: match,
+          format: "mp4",
+          language: meta.language,
+          xhr: {
+            flags: ["IP_LOCKED"],
+            headers: {
+              Referer: iframeURL.origin + "/"
+            }
+          }
+        };
+      }
+    }
+    return null;
+  });
+  return _extractWootlyStream.apply(this, arguments);
+}
+function extractValue(script, name) {
+  const match = script.match(new RegExp(`(?:var\\s+)?${name}\\s*=\\s*["']?([^;,'"\\s]+)`, "i"));
+  return match?.[1] ?? null;
+}
+
+// providers/extractors/embedDispatch.ts
+function dispatchEmbed(_x46, _x47, _x48, _x49) {
   return _dispatchEmbed.apply(this, arguments);
 } // providers/media/en/goojara/stream.ts
 function _dispatchEmbed() {
@@ -14102,6 +14237,8 @@ function _dispatchEmbed() {
         out = yield extractDroploadStreams(url, opts, ctx, meta);
       } else if (/fastream|fstream/.test(host)) {
         out = yield extractFastreamStreams(url, opts, ctx, meta);
+      } else if (/wootly/.test(host)) {
+        out = yield extractWootlyStream(url, opts, ctx, meta);
       } else {
         ctx.log.debug(`[dispatch] No extractor for host ${host}, skipping.`);
         return [];
@@ -14115,9 +14252,9 @@ function _dispatchEmbed() {
   });
   return _dispatchEmbed.apply(this, arguments);
 }
-function getStreams(_x44, _x45) {
+function getStreams(_x50, _x51) {
   return _getStreams.apply(this, arguments);
-} // providers/media/en/goojara/index.ts
+} // providers/media/en/goojara/lazy.ts
 function _getStreams() {
   _getStreams = _asyncToGenerator(function* (requester, ctx) {
     if (requester.media.type === "channel") return [];
@@ -14129,28 +14266,60 @@ function _getStreams() {
     const solved = yield ctx.solveChallenge(base, requester, {
       waitForCookie: "cf_clearance"
     });
+    const pageCookie = solved.html.match(/_3chk\(['"]([^'"]+)['"],['"]([^'"]+)['"]\)/);
+    const solvedCookie = pageCookie ? `${pageCookie[1]}=${pageCookie[2]}` : "";
     const headers = {
       Referer: base.origin + "/",
-      ...(solved.cookies ? {
-        cookie: solved.cookies
+      Origin: base.origin,
+      accept: "*/*",
+      ...(solved.cookies || solvedCookie ? {
+        cookie: [solved.cookies, solvedCookie].filter(Boolean).join("; ")
       } : {}),
       ...(solved.userAgent ? {
         "User-Agent": solved.userAgent
       } : {})
     };
-    const searchHtml = yield ctx.xhr.fetch(new URL("/xhrr.php", base), {
+    const searchUrl = new URL("/xmre.php", base);
+    const searchToken = ctx.cheerio.$load(solved.html)("#res").attr("data-ins") || "";
+    const searchBody = `z=${encodeURIComponent(searchToken)}&x=2278024220&q=${encodeURIComponent(title)}`;
+    const searchOptions = {
       method: "POST",
       attachUserAgent: true,
       clean: true,
+      useImpit: false,
       headers: {
         ...headers,
-        "content-type": "application/x-www-form-urlencoded",
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
         "x-requested-with": "XMLHttpRequest"
       },
-      body: "q=" + encodeURIComponent(title)
-    }, requester).then(r => r.text()).catch(() => "");
-    if (!searchHtml || /just a moment/i.test(searchHtml)) {
-      ctx.log.warn("[goojara] Search blocked (CF-hardened site, see module header).");
+      body: searchBody
+    };
+    let searchResponse = yield ctx.xhr.fetch(searchUrl, searchOptions, requester);
+    let searchHtml = yield searchResponse.text();
+    if (searchResponse.status === 403 || /<title>\s*just a moment|__cf_chl_opt|cf-mitigated/i.test(searchHtml)) {
+      const endpointSolved = yield ctx.solveChallenge(searchUrl, requester, {
+        waitForCookie: "cf_clearance"
+      });
+      const endpointHeaders = {
+        ...headers,
+        ...(endpointSolved.cookies ? {
+          cookie: endpointSolved.cookies
+        } : {}),
+        ...(endpointSolved.userAgent ? {
+          "User-Agent": endpointSolved.userAgent
+        } : {})
+      };
+      searchResponse = yield ctx.xhr.fetch(searchUrl, {
+        ...searchOptions,
+        headers: {
+          ...endpointHeaders,
+          Referer: base.origin + "/"
+        }
+      }, requester);
+      searchHtml = yield searchResponse.text();
+    }
+    if (!searchHtml || /<title>\s*just a moment|__cf_chl_opt|cf-mitigated/i.test(searchHtml)) {
+      ctx.log.warn(`[goojara] Search blocked after endpoint challenge solve (${searchResponse.status}).`);
       return [];
     }
     const $s = ctx.cheerio.$load(searchHtml);
@@ -14160,13 +14329,18 @@ function _getStreams() {
       const t = el.find("strong").first().text() || "";
       const typeClass = el.find("div").first().attr("class");
       const type = typeClass === "it" ? "show" : typeClass === "im" ? "movie" : "";
-      const slug = el.find("a").first().attr("href")?.split("/")[3];
+      const href = el.find("a").first().attr("href") || "";
+      const slug = href.split("/").filter(Boolean).pop();
+      const year = el.text().match(/\b(19\d{2}|20\d{2})\b/)?.[1] || "";
       if (slug && type === wantType) results.push({
         title: t,
+        year,
         slug
       });
     });
-    const match = results.find(r => norm(r.title) === norm(title)) || results[0];
+    const mediaYear = String(media.releaseYear ?? media.year ?? "");
+    const titleMatches = results.filter(r => norm(r.title) === norm(title));
+    const match = titleMatches.find(r => r.year === mediaYear) || titleMatches.sort((a, b) => Math.abs(Number(a.year) - Number(mediaYear)) - Math.abs(Number(b.year) - Number(mediaYear)))[0] || results[0];
     if (!match) {
       ctx.log.warn("[goojara] No matching result.");
       return [];
@@ -14212,16 +14386,22 @@ function _getStreams() {
     const embedUrls = [];
     for (const go of goLinks.slice(0, 5)) {
       try {
-        const res = yield ctx.xhr.fetch(new URL(go, base), {
+        const goUrl = new URL(go, base);
+        ctx.log.debug(`[goojara] Fetching redirect ${goUrl.href}`);
+        const res = yield ctx.xhr.fetch(goUrl, {
           method: "GET",
           attachUserAgent: true,
           clean: true,
+          useImpit: false,
           headers,
           redirect: "follow"
         }, requester);
-        const finalUrl = res.url;
+        const finalUrl = res.url || res.headers.get("location") || res.headers.get("Location") || "";
+        ctx.log.debug(`[goojara] Redirect ${go} -> ${finalUrl} (status ${res.status})`);
         if (finalUrl && !/goojara/i.test(finalUrl)) embedUrls.push(finalUrl);
-      } catch {}
+      } catch (error) {
+        ctx.log.debug(`[goojara] Redirect failed for ${go}: ${error.message}`);
+      }
     }
     const sources = [];
     const opts = {
@@ -14231,12 +14411,24 @@ function _getStreams() {
       }
     };
     for (const embed of embedUrls) {
-      if (/wootly/i.test(embed)) {
-        ctx.log.debug(`[goojara] wootly embed not yet supported: ${embed}`);
+      if (/\.(?:mp4|m3u8)(?:\?|$)/i.test(embed)) {
+        sources.push({
+          fileName: media.title,
+          playlist: embed,
+          language: "en",
+          format: embed.includes(".m3u8") ? "m3u8" : "mp4",
+          xhr: {
+            flags: ["CORS_BLOCKED"],
+            headers: {
+              Referer: "https://web.wootly.ch/"
+            }
+          }
+        });
         continue;
       }
       try {
         const found = yield dispatchEmbed(embed, opts, ctx, "en");
+        ctx.log.debug(`[goojara] Extractor returned ${found.length} source(s) for ${embed}`);
         if (found.length) sources.push(...found);
       } catch (error) {
         ctx.log.debug(`[goojara] Extractor failed for ${embed}: ${error.message}`);
@@ -14247,6 +14439,218 @@ function _getStreams() {
   });
   return _getStreams.apply(this, arguments);
 }
+var SUPPORTED_HOSTS = /wootly|dood|d0o0d|ds2play|ds2video|dsvplay|filemoon|moon|mixdrop|mdrop|mxdrop|supervideo|svideo|dropload|dr0p|dropstream|streamwish|vidhide|filelions|lions|fastream|fstream/i;
+function getLazyStreams(_x52, _x53) {
+  return _getLazyStreams.apply(this, arguments);
+}
+function _getLazyStreams() {
+  _getLazyStreams = _asyncToGenerator(function* (requester, ctx) {
+    if (requester.media.type === "channel") return [];
+    const found = yield findEmbeds(requester, ctx);
+    return found.map(embed => ({
+      fileName: embed.fileName,
+      language: embed.language,
+      lazy: {
+        id: encodeURIComponent(JSON.stringify(embed)),
+        label: new URL(embed.embed).hostname
+      },
+      xhr: {
+        flags: [],
+        headers: {}
+      }
+    }));
+  });
+  return _getLazyStreams.apply(this, arguments);
+}
+function resolveLazy(_x54, _x55, _x56) {
+  return _resolveLazy.apply(this, arguments);
+}
+function _resolveLazy() {
+  _resolveLazy = _asyncToGenerator(function* (id, ctx, requester) {
+    let handle;
+    try {
+      handle = JSON.parse(decodeURIComponent(id));
+    } catch {
+      return null;
+    }
+    if (!handle?.embed || !isAllowedEmbed(handle.embed)) return null;
+    const opts = {
+      ...requester,
+      extraHeaders: {
+        Referer: new URL(PROVIDER.config.baseUrl).origin + "/"
+      }
+    };
+    const sources = yield dispatchEmbed(handle.embed, opts, ctx, handle.language).catch(() => []);
+    return sources[0] ?? null;
+  });
+  return _resolveLazy.apply(this, arguments);
+}
+function findEmbeds(_x57, _x58) {
+  return _findEmbeds.apply(this, arguments);
+}
+function _findEmbeds() {
+  _findEmbeds = _asyncToGenerator(function* (requester, ctx) {
+    const media = requester.media;
+    const base = new URL(PROVIDER.config.baseUrl);
+    const title = String(media.title || "");
+    const wantType = media.type === "movie" ? "movie" : "show";
+    const norm = value => value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const solved = yield ctx.solveChallenge(base, requester, {
+      waitForCookie: "cf_clearance"
+    });
+    const pageCookie = solved.html.match(/_3chk\(['"]([^'"]+)['"],['"]([^'"]+)['"]\)/);
+    const solvedCookie = pageCookie ? `${pageCookie[1]}=${pageCookie[2]}` : "";
+    const headers = {
+      Referer: base.origin + "/",
+      Origin: base.origin,
+      accept: "*/*",
+      ...(solved.cookies || solvedCookie ? {
+        cookie: [solved.cookies, solvedCookie].filter(Boolean).join("; ")
+      } : {}),
+      ...(solved.userAgent ? {
+        "User-Agent": solved.userAgent
+      } : {})
+    };
+    const searchUrl = new URL("/xmre.php", base);
+    const searchHtml = yield searchGoojara(searchUrl, solved.html, title, headers, requester, ctx);
+    if (!searchHtml) return [];
+    const results = parseResults(searchHtml, wantType, title, media, ctx);
+    const match = selectResult(results, title, String(media.releaseYear ?? ""));
+    if (!match) return [];
+    let id = match.slug;
+    if (media.type === "serie") {
+      const series = media;
+      const showHtml = yield ctx.xhr.fetch(new URL(`/${match.slug}?s=${series.season}`, base), {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        headers
+      }, requester).then(response => response.text()).catch(() => "");
+      const $2 = ctx.cheerio.$load(showHtml);
+      id = "";
+      $2(".seho").each((_, element) => {
+        if (id) return;
+        const number = $2(element).find(".seep .sea").first().text().trim();
+        const href = $2(element).find(".snfo h1 a").first().attr("href") || "";
+        if (Number(number) === series.episode) id = href.match(/\/([a-zA-Z0-9]+)$/)?.[1] || "";
+      });
+      if (!id) return [];
+    }
+    const pageResponse = yield ctx.xhr.fetch(new URL(`/${id}`, base), {
+      method: "GET",
+      attachUserAgent: true,
+      clean: true,
+      headers
+    }, requester).catch(() => null);
+    if (!pageResponse) return [];
+    const pageHtml = yield pageResponse.text();
+    const pageCookies = pageResponse.headers.get("set-cookie");
+    if (pageCookies) headers.cookie = [headers.cookie, pageCookies].filter(Boolean).join("; ");
+    const $ = ctx.cheerio.$load(pageHtml);
+    const goLinks = [...new Set($("a").toArray().map(element => $(element).attr("href") || "").filter(href => href.includes("/go.php")))];
+    const handles = [];
+    for (const go of goLinks.slice(0, 8)) {
+      try {
+        const response = yield ctx.xhr.fetch(new URL(go, base), {
+          method: "GET",
+          attachUserAgent: true,
+          clean: true,
+          useImpit: false,
+          redirect: "follow",
+          headers
+        }, requester);
+        const finalUrl = response.url || "";
+        if (isAllowedEmbed(finalUrl)) handles.push({
+          embed: finalUrl,
+          fileName: String(media.title || match.title),
+          language: "en"
+        });
+      } catch {}
+    }
+    return handles.filter((handle, index) => handles.findIndex(other => other.embed === handle.embed) === index);
+  });
+  return _findEmbeds.apply(this, arguments);
+}
+function searchGoojara(_x59, _x60, _x61, _x62, _x63, _x64) {
+  return _searchGoojara.apply(this, arguments);
+}
+function _searchGoojara() {
+  _searchGoojara = _asyncToGenerator(function* (url, homepageHtml, title, headers, requester, ctx) {
+    const token = ctx.cheerio.$load(homepageHtml)("#res").attr("data-ins") || "";
+    const options = {
+      method: "POST",
+      attachUserAgent: true,
+      clean: true,
+      useImpit: false,
+      headers: {
+        ...headers,
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "x-requested-with": "XMLHttpRequest"
+      },
+      body: `z=${encodeURIComponent(token)}&x=2278024220&q=${encodeURIComponent(title)}`
+    };
+    let response = yield ctx.xhr.fetch(url, options, requester);
+    let html = yield response.text();
+    if (response.status === 403 || /<title>\s*just a moment|__cf_chl_opt|cf-mitigated/i.test(html)) {
+      const solved = yield ctx.solveChallenge(url, requester, {
+        waitForCookie: "cf_clearance"
+      });
+      response = yield ctx.xhr.fetch(url, {
+        ...options,
+        headers: {
+          ...headers,
+          ...(solved.cookies ? {
+            cookie: solved.cookies
+          } : {}),
+          ...(solved.userAgent ? {
+            "User-Agent": solved.userAgent
+          } : {})
+        }
+      }, requester);
+      html = yield response.text();
+    }
+    return /<title>\s*just a moment|__cf_chl_opt|cf-mitigated/i.test(html) ? "" : html;
+  });
+  return _searchGoojara.apply(this, arguments);
+}
+function parseResults(html, wantType, title, media, ctx) {
+  const $ = ctx.cheerio.$load(html);
+  const results = [];
+  $(".mfeed > li").each((_, element) => {
+    const item = $(element);
+    const typeClass = item.find("div").first().attr("class");
+    const type = typeClass === "it" ? "show" : typeClass === "im" ? "movie" : "";
+    const href = item.find("a").first().attr("href") || "";
+    const slug = href.split("/").filter(Boolean).pop();
+    const itemTitle = item.find("strong").first().text();
+    const year = item.text().match(/\b(19\d{2}|20\d{2})\b/)?.[1] || "";
+    if (slug && type === wantType) results.push({
+      title: itemTitle,
+      year,
+      slug
+    });
+  });
+  return results;
+}
+function selectResult(results, title, year) {
+  const matches = results.filter(result => normalize(result.title) === normalize(title));
+  return matches.find(result => result.year === year) || matches.sort((a, b) => Math.abs(Number(a.year) - Number(year)) - Math.abs(Number(b.year) - Number(year)))[0] || results[0] || null;
+}
+function normalize(value) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+function isAllowedEmbed(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && SUPPORTED_HOSTS.test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+// providers/media/en/goojara/index.ts
 var index_default = defineProviderModule(PROVIDER, manifest_default.providers["goojara"], {
-  getStreams
+  getStreams,
+  getLazyStreams,
+  resolveLazy
 });

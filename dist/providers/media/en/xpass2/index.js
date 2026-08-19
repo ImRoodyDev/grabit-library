@@ -12466,6 +12466,23 @@ function defineProviderModule(_this, manifest, workers) {
     workers: createModuleWorkers(_this, manifest, workers)
   };
 }
+function augmentMediaSource(source, manifest, provider, userAgent) {
+  const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
+  return {
+    ...source,
+    xhr: {
+      ...source.xhr,
+      headers: normalizeHeaders({
+        ...source.xhr?.headers,
+        "User-Agent": userAgent
+      })
+    },
+    format,
+    fileName: `[${manifest.name}][${format.toUpperCase()}] - ${import_iso_639_1.default.getName(source.language)} - ${source.fileName ?? "Source"} `,
+    providerName: manifest.name,
+    scheme: provider.config.scheme
+  };
+}
 function createModuleWorkers(provider, manifest, workers) {
   validateManifestConfiguration(provider, manifest);
   const shouldValidate = provider.config.xhr?.validateSources === true;
@@ -12475,23 +12492,7 @@ function createModuleWorkers(provider, manifest, workers) {
       var _ref = _asyncToGenerator(function* (requester, context) {
         try {
           const sources = yield workers.getStreams(requester, context);
-          const withMeta = sources.map(source => {
-            const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
-            return {
-              ...source,
-              xhr: {
-                ...source.xhr,
-                headers: normalizeHeaders({
-                  ...source.xhr?.headers,
-                  "User-Agent": requester.userAgent
-                })
-              },
-              format,
-              fileName: `[${manifest.name}][${format.toUpperCase()}] - ${import_iso_639_1.default.getName(source.language)} - ${source.fileName ?? "Source"} `,
-              providerName: manifest.name,
-              scheme: provider.config.scheme
-            };
-          });
+          const withMeta = sources.map(source => augmentMediaSource(source, manifest, provider, requester.userAgent));
           const sorted = sortByTargetLanguage(withMeta, requester.targetLanguageISO);
           if (!shouldValidate) return sorted;
           return validateMediaSources(sorted, requester, context);
@@ -12508,8 +12509,29 @@ function createModuleWorkers(provider, manifest, workers) {
         return _ref.apply(this, arguments);
       };
     }()) : void 0,
-    getSubtitles: workers.getSubtitles ? (/*#__PURE__*/function () {
+    // Lazy listing: augment each handle like getStreams but never validate — lazy sources
+    // have no URL yet (resolved on play via resolveLazy).
+    getLazyStreams: workers.getLazyStreams ? (/*#__PURE__*/function () {
       var _ref2 = _asyncToGenerator(function* (requester, context) {
+        try {
+          const sources = yield workers.getLazyStreams(requester, context);
+          const withMeta = sources.map(source => augmentMediaSource(source, manifest, provider, requester.userAgent));
+          return sortByTargetLanguage(withMeta, requester.targetLanguageISO);
+        } catch (error) {
+          const logEntry = describeProviderWorkerError("getLazyStreams", manifest, error);
+          context.log.error(logEntry.summary);
+          if (logEntry.details) {
+            context.log.debug(`Provider ${manifest.name} getLazyStreams details`, logEntry.details);
+          }
+          throw error;
+        }
+      });
+      return function (_x3, _x4) {
+        return _ref2.apply(this, arguments);
+      };
+    }()) : void 0,
+    getSubtitles: workers.getSubtitles ? (/*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(function* (requester, context) {
         try {
           const sources = yield workers.getSubtitles(requester, context);
           const withMeta = sources.map(source => ({
@@ -12537,44 +12559,30 @@ function createModuleWorkers(provider, manifest, workers) {
           throw error;
         }
       });
-      return function (_x3, _x4) {
-        return _ref2.apply(this, arguments);
+      return function (_x5, _x6) {
+        return _ref3.apply(this, arguments);
       };
     }()) : void 0,
     // Lazy resolution: shape the single resolved source like getStreams.
     resolveLazy: workers.resolveLazy ? (/*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(function* (id, context, requester) {
+      var _ref4 = _asyncToGenerator(function* (id, context, requester) {
         const source = yield workers.resolveLazy(id, context, requester);
         if (!source) return null;
-        const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
-        return {
-          ...source,
-          xhr: {
-            ...source.xhr,
-            headers: normalizeHeaders({
-              ...source.xhr?.headers,
-              "User-Agent": requester.userAgent
-            })
-          },
-          format,
-          fileName: `[${manifest.name}][${format.toUpperCase()}] - ${source.fileName ?? "Source"} `,
-          providerName: manifest.name,
-          scheme: provider.config.scheme
-        };
+        return augmentMediaSource(source, manifest, provider, requester.userAgent);
       });
-      return function (_x5, _x6, _x7) {
-        return _ref3.apply(this, arguments);
+      return function (_x7, _x8, _x9) {
+        return _ref4.apply(this, arguments);
       };
     }()) : void 0
   };
 }
-function validateMediaSources(_x8, _x9, _x0) {
+function validateMediaSources(_x0, _x1, _x10) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(function* (source) {
+      var _ref5 = _asyncToGenerator(function* (source) {
         if (source.lazy) return source;
         const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
@@ -12586,21 +12594,21 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x27) {
-        return _ref4.apply(this, arguments);
+      return function (_x41) {
+        return _ref5.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x1, _x10, _x11) {
+function validateSubtitleSources(_x11, _x12, _x13) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
   _validateSubtitleSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref5 = _asyncToGenerator(function* (source) {
+      var _ref6 = _asyncToGenerator(function* (source) {
         if (!source.url) return null;
         const {
           ok
@@ -12610,8 +12618,8 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x28) {
-        return _ref5.apply(this, arguments);
+      return function (_x42) {
+        return _ref6.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
@@ -13092,7 +13100,7 @@ var manifest_default = {
     goojara: {
       name: "Goojara",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
       env: "universal",
@@ -13355,7 +13363,7 @@ var PROVIDER = Provider.create(config);
 
 // providers/media/en/xpass2/stream.ts
 var MAX_SOURCES = 8;
-function getStreams(_x12, _x13) {
+function getStreams(_x14, _x15) {
   return _getStreams.apply(this, arguments);
 }
 function _getStreams() {
@@ -13384,7 +13392,7 @@ function _getStreams() {
   });
   return _getStreams.apply(this, arguments);
 }
-function resolveViaXhr(_x14, _x15, _x16, _x17) {
+function resolveViaXhr(_x16, _x17, _x18, _x19) {
   return _resolveViaXhr.apply(this, arguments);
 }
 function _resolveViaXhr() {
@@ -13431,7 +13439,7 @@ function _resolveViaXhr() {
   });
   return _resolveViaXhr.apply(this, arguments);
 }
-function resolveFromDataUrl(_x18, _x19, _x20, _x21, _x22) {
+function resolveFromDataUrl(_x20, _x21, _x22, _x23, _x24) {
   return _resolveFromDataUrl.apply(this, arguments);
 }
 function _resolveFromDataUrl() {
@@ -13494,7 +13502,7 @@ function _resolveFromDataUrl() {
   });
   return _resolveFromDataUrl.apply(this, arguments);
 }
-function resolveViaSolve(_x23, _x24, _x25, _x26) {
+function resolveViaSolve(_x25, _x26, _x27, _x28) {
   return _resolveViaSolve.apply(this, arguments);
 }
 function _resolveViaSolve() {
@@ -13552,7 +13560,194 @@ function toSources(streams, referer, base) {
   }));
 }
 
+// providers/media/en/xpass2/lazy.ts
+function getLazyStreams(_x29, _x30) {
+  return _getLazyStreams.apply(this, arguments);
+}
+function _getLazyStreams() {
+  _getLazyStreams = _asyncToGenerator(function* (requester, ctx) {
+    if (requester.media.type === "channel") return [];
+    const embedUrl = PROVIDER.createResourceURL(requester);
+    const session = yield getSession(embedUrl, requester, ctx);
+    if (!session) return [];
+    const entries = yield getEntries(session.dataUrl, session.headers, requester, ctx);
+    return entries.slice(0, 8).map((entry, index) => ({
+      fileName: entry.name || `Xpass ${index + 1}`,
+      language: "en",
+      lazy: {
+        id: encodeURIComponent(JSON.stringify({
+          embedUrl: embedUrl.href,
+          sourceIndex: index,
+          name: entry.name || `Xpass ${index + 1}`
+        })),
+        label: entry.name || `Source ${index + 1}`
+      },
+      xhr: {
+        flags: [],
+        headers: {}
+      }
+    }));
+  });
+  return _getLazyStreams.apply(this, arguments);
+}
+function resolveLazy(_x31, _x32, _x33) {
+  return _resolveLazy.apply(this, arguments);
+}
+function _resolveLazy() {
+  _resolveLazy = _asyncToGenerator(function* (id, ctx, requester) {
+    let handle;
+    try {
+      handle = JSON.parse(decodeURIComponent(id));
+    } catch {
+      return null;
+    }
+    if (!handle?.embedUrl || !Number.isInteger(handle.sourceIndex) || handle.sourceIndex < 0 || !handle.name) return null;
+    const base = new URL(PROVIDER.config.baseUrl);
+    let embedUrl;
+    try {
+      embedUrl = new URL(handle.embedUrl);
+    } catch {
+      return null;
+    }
+    if (embedUrl.origin !== base.origin || embedUrl.protocol !== "https:") return null;
+    const session = yield getSession(embedUrl, requester, ctx);
+    if (!session) return null;
+    const entries = yield getEntries(session.dataUrl, session.headers, requester, ctx);
+    const entry = entries[handle.sourceIndex];
+    if (!entry?.url || !isLocalUrl(entry.url, base)) return null;
+    try {
+      const response = yield ctx.xhr.fetch(new URL(entry.url, base), {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        headers: session.headers
+      }, requester);
+      const files = [];
+      findFiles2(JSON.parse(yield response.text()), files);
+      const file = files[0]?.file;
+      if (!file) return null;
+      return {
+        fileName: handle.name,
+        playlist: file,
+        language: "en",
+        format: "m3u8",
+        xhr: {
+          flags: ["CORS_BLOCKED"],
+          headers: {
+            Referer: base.origin + "/",
+            Origin: base.origin
+          }
+        }
+      };
+    } catch {
+      return null;
+    }
+  });
+  return _resolveLazy.apply(this, arguments);
+}
+function getSession(_x34, _x35, _x36) {
+  return _getSession.apply(this, arguments);
+}
+function _getSession() {
+  _getSession = _asyncToGenerator(function* (embedUrl, requester, ctx) {
+    const base = new URL(PROVIDER.config.baseUrl);
+    try {
+      const response = yield ctx.xhr.fetch(embedUrl, {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        headers: {
+          Referer: base.origin + "/",
+          "accept-language": "en-US,en;q=0.9"
+        }
+      }, requester);
+      const html = yield response.text();
+      const dataUrl = html.match(/var\s+dataUrl\s*=\s*["']([^"']+)["']/)?.[1];
+      if (response.status === 403 || isCloudflare2(html) || !dataUrl || !isLocalUrl(dataUrl, base)) return null;
+      return {
+        dataUrl,
+        headers: {
+          Referer: embedUrl.href,
+          "accept-language": "en-US,en;q=0.9",
+          "x-requested-with": "XMLHttpRequest",
+          ...(createCookiesFromSet(response.headers) ? {
+            cookie: createCookiesFromSet(response.headers)
+          } : {})
+        }
+      };
+    } catch {
+      try {
+        const solved = yield ctx.solveChallenge(embedUrl, requester, {
+          waitForCookie: "cf_clearance"
+        });
+        const dataUrl = solved.html.match(/var\s+dataUrl\s*=\s*["']([^"']+)["']/)?.[1];
+        if (!dataUrl || !isLocalUrl(dataUrl, base)) return null;
+        return {
+          dataUrl,
+          headers: {
+            Referer: embedUrl.href,
+            "accept-language": "en-US,en;q=0.9",
+            "x-requested-with": "XMLHttpRequest",
+            ...(solved.cookies ? {
+              cookie: solved.cookies
+            } : {}),
+            ...(solved.userAgent ? {
+              "User-Agent": solved.userAgent
+            } : {})
+          }
+        };
+      } catch {
+        return null;
+      }
+    }
+  });
+  return _getSession.apply(this, arguments);
+}
+function getEntries(_x37, _x38, _x39, _x40) {
+  return _getEntries.apply(this, arguments);
+}
+function _getEntries() {
+  _getEntries = _asyncToGenerator(function* (dataUrl, headers, requester, ctx) {
+    try {
+      const base = new URL(PROVIDER.config.baseUrl);
+      const response = yield ctx.xhr.fetch(new URL(dataUrl, base), {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        headers
+      }, requester);
+      const entries = JSON.parse(yield response.text());
+      return Array.isArray(entries) ? entries.filter(entry => entry?.url && isLocalUrl(entry.url, base)) : [];
+    } catch {
+      return [];
+    }
+  });
+  return _getEntries.apply(this, arguments);
+}
+function isLocalUrl(value, base) {
+  try {
+    return new URL(value, base).origin === base.origin;
+  } catch {
+    return false;
+  }
+}
+function isCloudflare2(html) {
+  return /<title>\s*just a moment|__cf_chl_(?:f_)?tk|cf-browser-verification|cf_chl_opt/i.test(html);
+}
+function findFiles2(value, out) {
+  if (Array.isArray(value)) return value.forEach(item => findFiles2(item, out));
+  if (value && typeof value === "object") {
+    if (typeof value.file === "string" && /^https?:\/\//.test(value.file)) out.push({
+      file: value.file,
+      label: value.label
+    });
+    for (const key of Object.keys(value)) if (key !== "file") findFiles2(value[key], out);
+  }
+}
+
 // providers/media/en/xpass2/index.ts
 var index_default = defineProviderModule(PROVIDER, manifest_default.providers["xpass2"], {
-  getStreams
+  getStreams,
+  getLazyStreams,
+  resolveLazy
 });

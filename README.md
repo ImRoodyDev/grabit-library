@@ -1,5 +1,5 @@
 <div align="center">
-<img src="https://raw.githubusercontent.com/ImRoodyDev/grabit-engine/refs/heads/beta-v1/grabit.svg" width="120" alt="Grabit Engine" />
+<img src="https://raw.githubusercontent.com/ImRoodyDev/grabit-engine/refs/heads/main/grabit.svg" width="120" alt="Grabit Engine" />
 <h1>Grabit Libray</h1>
 Provider library that uses [grabit-engine](../grabit-engine) to scrape websites and extract multilingual streaming sources (movies, series, and live TV).
 </div>
@@ -24,7 +24,7 @@ Provider library that uses [grabit-engine](../grabit-engine) to scrape websites 
 
 This library is used together with **grabit-engine**. For setup and usage instructions, see the engine documentation:
 
-👉 [grabit-engine README (beta-v1)](https://github.com/ImRoodyDev/grabit-engine/blob/beta-v1/README.md)
+👉 [grabit-engine README (main)](https://github.com/ImRoodyDev/grabit-engine/blob/main/README.md)
 
 ## Disclaimer
 

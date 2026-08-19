@@ -12584,6 +12584,23 @@ function defineProviderModule(_this, manifest, workers) {
     workers: createModuleWorkers(_this, manifest, workers)
   };
 }
+function augmentMediaSource(source, manifest, provider, userAgent) {
+  const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
+  return {
+    ...source,
+    xhr: {
+      ...source.xhr,
+      headers: normalizeHeaders({
+        ...source.xhr?.headers,
+        "User-Agent": userAgent
+      })
+    },
+    format,
+    fileName: `[${manifest.name}][${format.toUpperCase()}] - ${import_iso_639_1.default.getName(source.language)} - ${source.fileName ?? "Source"} `,
+    providerName: manifest.name,
+    scheme: provider.config.scheme
+  };
+}
 function createModuleWorkers(provider, manifest, workers) {
   validateManifestConfiguration(provider, manifest);
   const shouldValidate = provider.config.xhr?.validateSources === true;
@@ -12593,23 +12610,7 @@ function createModuleWorkers(provider, manifest, workers) {
       var _ref = _asyncToGenerator(function* (requester, context) {
         try {
           const sources = yield workers.getStreams(requester, context);
-          const withMeta = sources.map(source => {
-            const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
-            return {
-              ...source,
-              xhr: {
-                ...source.xhr,
-                headers: normalizeHeaders({
-                  ...source.xhr?.headers,
-                  "User-Agent": requester.userAgent
-                })
-              },
-              format,
-              fileName: `[${manifest.name}][${format.toUpperCase()}] - ${import_iso_639_1.default.getName(source.language)} - ${source.fileName ?? "Source"} `,
-              providerName: manifest.name,
-              scheme: provider.config.scheme
-            };
-          });
+          const withMeta = sources.map(source => augmentMediaSource(source, manifest, provider, requester.userAgent));
           const sorted = sortByTargetLanguage(withMeta, requester.targetLanguageISO);
           if (!shouldValidate) return sorted;
           return validateMediaSources(sorted, requester, context);
@@ -12626,8 +12627,29 @@ function createModuleWorkers(provider, manifest, workers) {
         return _ref.apply(this, arguments);
       };
     }()) : void 0,
-    getSubtitles: workers.getSubtitles ? (/*#__PURE__*/function () {
+    // Lazy listing: augment each handle like getStreams but never validate — lazy sources
+    // have no URL yet (resolved on play via resolveLazy).
+    getLazyStreams: workers.getLazyStreams ? (/*#__PURE__*/function () {
       var _ref2 = _asyncToGenerator(function* (requester, context) {
+        try {
+          const sources = yield workers.getLazyStreams(requester, context);
+          const withMeta = sources.map(source => augmentMediaSource(source, manifest, provider, requester.userAgent));
+          return sortByTargetLanguage(withMeta, requester.targetLanguageISO);
+        } catch (error) {
+          const logEntry = describeProviderWorkerError("getLazyStreams", manifest, error);
+          context.log.error(logEntry.summary);
+          if (logEntry.details) {
+            context.log.debug(`Provider ${manifest.name} getLazyStreams details`, logEntry.details);
+          }
+          throw error;
+        }
+      });
+      return function (_x3, _x4) {
+        return _ref2.apply(this, arguments);
+      };
+    }()) : void 0,
+    getSubtitles: workers.getSubtitles ? (/*#__PURE__*/function () {
+      var _ref3 = _asyncToGenerator(function* (requester, context) {
         try {
           const sources = yield workers.getSubtitles(requester, context);
           const withMeta = sources.map(source => ({
@@ -12655,44 +12677,30 @@ function createModuleWorkers(provider, manifest, workers) {
           throw error;
         }
       });
-      return function (_x3, _x4) {
-        return _ref2.apply(this, arguments);
+      return function (_x5, _x6) {
+        return _ref3.apply(this, arguments);
       };
     }()) : void 0,
     // Lazy resolution: shape the single resolved source like getStreams.
     resolveLazy: workers.resolveLazy ? (/*#__PURE__*/function () {
-      var _ref3 = _asyncToGenerator(function* (id, context, requester) {
+      var _ref4 = _asyncToGenerator(function* (id, context, requester) {
         const source = yield workers.resolveLazy(id, context, requester);
         if (!source) return null;
-        const format = source.format ?? (typeof source.playlist === "string" ? extractExtension(source.playlist) ?? "m3u8" : "m3u8");
-        return {
-          ...source,
-          xhr: {
-            ...source.xhr,
-            headers: normalizeHeaders({
-              ...source.xhr?.headers,
-              "User-Agent": requester.userAgent
-            })
-          },
-          format,
-          fileName: `[${manifest.name}][${format.toUpperCase()}] - ${source.fileName ?? "Source"} `,
-          providerName: manifest.name,
-          scheme: provider.config.scheme
-        };
+        return augmentMediaSource(source, manifest, provider, requester.userAgent);
       });
-      return function (_x5, _x6, _x7) {
-        return _ref3.apply(this, arguments);
+      return function (_x7, _x8, _x9) {
+        return _ref4.apply(this, arguments);
       };
     }()) : void 0
   };
 }
-function validateMediaSources(_x8, _x9, _x0) {
+function validateMediaSources(_x0, _x1, _x10) {
   return _validateMediaSources.apply(this, arguments);
 }
 function _validateMediaSources() {
   _validateMediaSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref4 = _asyncToGenerator(function* (source) {
+      var _ref5 = _asyncToGenerator(function* (source) {
         if (source.lazy) return source;
         const url = typeof source.playlist === "string" ? source.playlist : source.playlist?.[0]?.source;
         if (!url) return null;
@@ -12704,21 +12712,21 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x33) {
-        return _ref4.apply(this, arguments);
+      return function (_x49) {
+        return _ref5.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
   });
   return _validateMediaSources.apply(this, arguments);
 }
-function validateSubtitleSources(_x1, _x10, _x11) {
+function validateSubtitleSources(_x11, _x12, _x13) {
   return _validateSubtitleSources.apply(this, arguments);
 } // node_modules/grabit-engine/dist/esm/src/utils/path.js
 function _validateSubtitleSources() {
   _validateSubtitleSources = _asyncToGenerator(function* (sources, requester, context) {
     const results = yield Promise.all(sources.map(/*#__PURE__*/function () {
-      var _ref5 = _asyncToGenerator(function* (source) {
+      var _ref6 = _asyncToGenerator(function* (source) {
         if (!source.url) return null;
         const {
           ok
@@ -12728,8 +12736,8 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x34) {
-        return _ref5.apply(this, arguments);
+      return function (_x50) {
+        return _ref6.apply(this, arguments);
       };
     }()));
     return results.filter(s => s !== null);
@@ -13380,7 +13388,7 @@ var manifest_default = {
     goojara: {
       name: "Goojara",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
       env: "universal",
@@ -13643,7 +13651,7 @@ var config = {
 var PROVIDER = Provider.create(config);
 
 // providers/extractors/goodstream.ts
-function extractGoodstreamStreams(_x12, _x13, _x14, _x15) {
+function extractGoodstreamStreams(_x14, _x15, _x16, _x17) {
   return _extractGoodstreamStreams.apply(this, arguments);
 } // providers/extractors/vimeos.ts
 function _extractGoodstreamStreams() {
@@ -13703,7 +13711,7 @@ function _extractGoodstreamStreams() {
   });
   return _extractGoodstreamStreams.apply(this, arguments);
 }
-function extractVimeosStreams(_x16, _x17, _x18, _x19) {
+function extractVimeosStreams(_x18, _x19, _x20, _x21) {
   return _extractVimeosStreams.apply(this, arguments);
 } // providers/extractors/filemoon.ts
 function _extractVimeosStreams() {
@@ -13764,7 +13772,7 @@ function _extractVimeosStreams() {
   });
   return _extractVimeosStreams.apply(this, arguments);
 }
-function extractFilemoonStreams(_x20, _x21, _x22, _x23) {
+function extractFilemoonStreams(_x22, _x23, _x24, _x25) {
   return _extractFilemoonStreams.apply(this, arguments);
 } // providers/media/es/lamovie/stream.ts
 function _extractFilemoonStreams() {
@@ -13828,7 +13836,7 @@ function _extractFilemoonStreams() {
   });
   return _extractFilemoonStreams.apply(this, arguments);
 }
-function getStreams(_x24, _x25) {
+function getStreams(_x26, _x27) {
   return _getStreams.apply(this, arguments);
 }
 function _getStreams() {
@@ -13985,7 +13993,7 @@ function selectBestResult(results, media) {
     };
   }).filter(result => result.score >= 100).sort((a, b) => b.score - a.score).at(0) ?? null;
 }
-function getEpisodeId(_x26, _x27, _x28) {
+function getEpisodeId(_x28, _x29, _x30) {
   return _getEpisodeId.apply(this, arguments);
 }
 function _getEpisodeId() {
@@ -14035,7 +14043,7 @@ function _getEpisodeId() {
   });
   return _getEpisodeId.apply(this, arguments);
 }
-function getServers(_x29, _x30, _x31, _x32) {
+function getServers(_x31, _x32, _x33, _x34) {
   return _getServers.apply(this, arguments);
 }
 function _getServers() {
@@ -14115,7 +14123,199 @@ function createSearchURL(query, requester) {
   return new URL(path, PROVIDER.config.baseUrl);
 }
 
+// providers/media/es/lamovie/lazy.ts
+var API_HEADERS = {
+  accept: "application/json",
+  "accept-language": "en-US,en;q=0.9",
+  "content-type": "application/json"
+};
+function getLazyStreams(_x35, _x36) {
+  return _getLazyStreams.apply(this, arguments);
+}
+function _getLazyStreams() {
+  _getLazyStreams = _asyncToGenerator(function* (requester, ctx) {
+    if (requester.media.type === "channel") return [];
+    const result = yield findResult(requester, ctx);
+    if (!result) return [];
+    const mediaId = requester.media.type === "serie" ? yield getEpisodeId2(result, requester, ctx) : result.id;
+    if (!mediaId) return [];
+    const servers = yield getServers2(mediaId, result, requester, ctx);
+    return servers.filter(server => isAllowedServer(server)).map(server => ({
+      fileName: `HLS ${server.quality}`,
+      language: server.lang || "es",
+      lazy: {
+        id: encodeURIComponent(JSON.stringify({
+          ...server,
+          title: result.title
+        })),
+        label: `${server.serverName} ${server.quality}`
+      },
+      xhr: {
+        flags: [],
+        headers: {}
+      }
+    }));
+  });
+  return _getLazyStreams.apply(this, arguments);
+}
+function resolveLazy(_x37, _x38, _x39) {
+  return _resolveLazy.apply(this, arguments);
+}
+function _resolveLazy() {
+  _resolveLazy = _asyncToGenerator(function* (id, ctx, requester) {
+    let handle;
+    try {
+      handle = JSON.parse(decodeURIComponent(id));
+    } catch {
+      return null;
+    }
+    if (!handle?.title || !isAllowedServer(handle)) return null;
+    const metadata = {
+      fileName: `HLS ${handle.quality}`,
+      format: "m3u8",
+      language: handle.lang || "es"
+    };
+    try {
+      if (handle.serverName === "goodstream") return (yield extractGoodstreamStreams(new URL(handle.url), requester, ctx, metadata))[0] ?? null;
+      if (handle.serverName === "vimeos") return (yield extractVimeosStreams(new URL(handle.url), requester, ctx, metadata))[0] ?? null;
+      if (handle.serverName === "filemoon") return (yield extractFilemoonStreams(new URL(handle.url), requester, ctx, metadata))[0] ?? null;
+      return null;
+    } catch {
+      return null;
+    }
+  });
+  return _resolveLazy.apply(this, arguments);
+}
+function findResult(_x40, _x41) {
+  return _findResult.apply(this, arguments);
+}
+function _findResult() {
+  _findResult = _asyncToGenerator(function* (requester, ctx) {
+    for (const search of PROVIDER.createResourceUrls(requester)) {
+      try {
+        const query = search.searchParams.get("q") || "";
+        const url = createSearchURL2(query, requester);
+        const response = yield ctx.xhr.fetchResponse(url, {
+          method: "GET",
+          attachUserAgent: true,
+          clean: true,
+          headers: {
+            ...API_HEADERS,
+            referer: url.origin + "/"
+          }
+        }, requester);
+        const posts = response.data?.posts ?? [];
+        const result = selectBest(posts, requester.media);
+        if (result) return result;
+      } catch {}
+    }
+    return null;
+  });
+  return _findResult.apply(this, arguments);
+}
+function getEpisodeId2(_x42, _x43, _x44) {
+  return _getEpisodeId2.apply(this, arguments);
+}
+function _getEpisodeId2() {
+  _getEpisodeId2 = _asyncToGenerator(function* (result, requester, ctx) {
+    const media = requester.media;
+    const url = new URL("/wp-api/v1/single/episodes/list", PROVIDER.config.baseUrl);
+    url.search = new URLSearchParams({
+      _id: result.id,
+      season: String(media.season),
+      page: "0",
+      postsPerPage: "15"
+    }).toString();
+    try {
+      const data = yield ctx.xhr.fetchResponse(url, {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        headers: API_HEADERS
+      }, requester);
+      return data.data?.posts?.find(episode => episode.episode_number === media.episode && episode.season_number === media.season)?._id ?? null;
+    } catch {
+      return null;
+    }
+  });
+  return _getEpisodeId2.apply(this, arguments);
+}
+function getServers2(_x45, _x46, _x47, _x48) {
+  return _getServers2.apply(this, arguments);
+}
+function _getServers2() {
+  _getServers2 = _asyncToGenerator(function* (mediaId, result, requester, ctx) {
+    const url = new URL("/wp-api/v1/player", PROVIDER.config.baseUrl);
+    url.search = new URLSearchParams({
+      postId: mediaId,
+      demo: "0"
+    }).toString();
+    try {
+      const data = yield ctx.xhr.fetchResponse(url, {
+        method: "GET",
+        attachUserAgent: true,
+        clean: true,
+        headers: {
+          ...API_HEADERS,
+          Referer: result.entry
+        }
+      }, requester);
+      return (data.data?.embeds ?? []).map(embed => {
+        const raw = String(embed.lang || "").toLowerCase().split("-")[0];
+        const lang = raw === "en" || raw === "ingles" ? "en" : "es";
+        return {
+          lang,
+          url: String(embed.url || ""),
+          quality: String(embed.quality || ""),
+          serverName: tldts.parse(String(embed.url || "")).domainWithoutSuffix || ""
+        };
+      }).sort((a, b) => (a.lang === "es" ? 0 : 1) - (b.lang === "es" ? 0 : 1));
+    } catch {
+      return [];
+    }
+  });
+  return _getServers2.apply(this, arguments);
+}
+function selectBest(posts, media) {
+  return posts.map(post => {
+    const title = post.original_title || post.title;
+    const year = new Date(post.release_date).getFullYear().toString();
+    const type = post.type?.includes("movie") ? "peliculas" : "series";
+    return {
+      id: post._id,
+      title,
+      year,
+      entry: new URL(PROVIDER.createPatternString("/{type:string}/{slug:string}/", media, {
+        type,
+        slug: post.slug
+      }), PROVIDER.config.baseUrl).href,
+      score: Math.max(calculateMatchScore({
+        title,
+        year
+      }, media), calculateMatchScore({
+        title: post.title,
+        year
+      }, media))
+    };
+  }).filter(item => item.score >= 100).sort((a, b) => b.score - a.score)[0] ?? null;
+}
+function isAllowedServer(server) {
+  try {
+    const url = new URL(server.url || "");
+    return url.protocol === "https:" && ["goodstream", "vimeos", "filemoon"].includes(server.serverName || "") && new RegExp(server.serverName || "x", "i").test(url.hostname);
+  } catch {
+    return false;
+  }
+}
+function createSearchURL2(query, requester) {
+  return new URL(PROVIDER.createPatternString("/wp-api/v1/search?filter=%7B%7D&postType=any&q={keyify:form-uri}&postsPerPage=26", requester.media, {
+    keyify: query.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/[^\p{L}\p{N} -]+/gu, "").replace(/\s+/g, "-").replace(/-+/g, "-").split("-").join(" ").substring(0, 16)
+  }), PROVIDER.config.baseUrl);
+}
+
 // providers/media/es/lamovie/index.ts
 var index_default = defineProviderModule(PROVIDER, manifest_default.providers["lamovie"], {
-  getStreams
+  getStreams,
+  getLazyStreams,
+  resolveLazy
 });

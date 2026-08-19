@@ -23,6 +23,34 @@ playlist only on play. The resolver accepts only URLs on `vixsrc.to`, preventing
 handle from becoming an SSRF fetch. A direct Inception lazy-list/resolve check returned one
 handle without a playlist and then a valid m3u8 source.
 
+## Lazy workers: PrimeSrc, 4KHDHub, MoviesDrive
+
+PrimeSrc lazy listing resolves API keys to supported embed URLs, while extraction is deferred
+until play. Handles contain the embed URL and server name; resolution accepts only HTTPS hosts
+already supported by `embedDispatch`. The live site currently returned servers but no resolvable
+embeds during testing, so the eager and lazy paths return empty results in that host state.
+
+4KHDHub and MoviesDrive lazy listing stops after candidate download links are found. Their
+handles contain the candidate URL, quality label, and matched title; resolution performs the
+HubCloud or GDFlix chain and extractor work. Candidate URLs are restricted to the provider's
+known cloud and recovery hosts before any resolver fetch. A direct 4KHDHub Inception check
+returned three handles without playlists and resolved one to an m3u8 source. MoviesDrive found
+six candidates, but its current HubCloud title guard returned no eager sources during testing.
+
+Vega lazy listing returns the matched post's download candidates and defers the dotlink to
+HubCloud resolution. Its candidate handle is origin-checked against Vega and known cloud hosts.
+A direct Inception check returned three handles without playlists and resolved one to an MKV.
+
+Lamovie lazy listing returns the player API's Goodstream, Vimeos, and Filemoon embeds and
+defers the corresponding extractor. Resolution requires HTTPS URLs whose hostname matches the
+selected extractor exactly. The live Inception test returned one Goodstream HLS source.
+
+Xpass2 lazy listing returns source indices from the signed source list, never client-visible
+cookies or signed playlist URLs. Resolution reacquires the embed session and signed list, then
+fetches only the selected `playlist.json`; embed, API, and playlist-entry URLs are constrained to
+the Xpass2 origin before server-side fetching. A direct Inception check returned eight handles
+without playlists and resolved one to M3U8.
+
 ## HomeCine — `providers/media/es/homecine` — active, HTTP-first
 
 Spanish (Latino / Castellano) DooPlay site, no Cloudflare. Chain:
