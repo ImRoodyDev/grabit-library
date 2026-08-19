@@ -1,9 +1,4 @@
-import type {
-	ScrapeRequester,
-	InternalMediaSource,
-	ProviderContext,
-	CheerioLoadRequest,
-} from 'grabit-engine';
+import type { ScrapeRequester, InternalMediaSource, ProviderContext, CheerioLoadRequest } from 'grabit-engine';
 import { dispatchEmbed } from '../../../extractors/embedDispatch';
 import { PROVIDER } from './config';
 
@@ -71,7 +66,10 @@ export async function resolveLazy(
 		return null;
 	}
 	if (!handle?.name || !isSupportedEmbed(handle.url)) return null;
-	const opts: CheerioLoadRequest = { ...requester, extraHeaders: { Referer: new URL(PROVIDER.config.baseUrl).origin + '/' } };
+	const opts: CheerioLoadRequest = {
+		...requester,
+		extraHeaders: { Referer: new URL(PROVIDER.config.baseUrl).origin + '/' },
+	};
 	const sources = await dispatchEmbed(handle.url, opts, ctx, 'en').catch(() => []);
 	return sources[0] ?? null;
 }

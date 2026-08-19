@@ -49,7 +49,11 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 		attachUserAgent: true,
 		clean: true,
 		useImpit: false,
-		headers: { ...headers, 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8', 'x-requested-with': 'XMLHttpRequest' },
+		headers: {
+			...headers,
+			'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+			'x-requested-with': 'XMLHttpRequest',
+		},
 		body: searchBody,
 	};
 	let searchResponse = await ctx.xhr.fetch(searchUrl, searchOptions, requester);
@@ -88,7 +92,12 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 	});
 	const mediaYear = String((media as any).releaseYear ?? (media as any).year ?? '');
 	const titleMatches = results.filter((r) => norm(r.title) === norm(title));
-	const match = titleMatches.find((r) => r.year === mediaYear) || titleMatches.sort((a, b) => Math.abs(Number(a.year) - Number(mediaYear)) - Math.abs(Number(b.year) - Number(mediaYear)))[0] || results[0];
+	const match =
+		titleMatches.find((r) => r.year === mediaYear) ||
+		titleMatches.sort(
+			(a, b) => Math.abs(Number(a.year) - Number(mediaYear)) - Math.abs(Number(b.year) - Number(mediaYear)),
+		)[0] ||
+		results[0];
 	if (!match) {
 		ctx.log.warn('[goojara] No matching result.');
 		return [];
@@ -99,7 +108,11 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 	if (media.type === 'serie') {
 		const s = media as SerieMedia;
 		const showHtml = await ctx.xhr
-			.fetch(new URL(`/${match.slug}?s=${s.season}`, base), { method: 'GET', attachUserAgent: true, clean: true, headers }, requester)
+			.fetch(
+				new URL(`/${match.slug}?s=${s.season}`, base),
+				{ method: 'GET', attachUserAgent: true, clean: true, headers },
+				requester,
+			)
 			.then((r) => r.text())
 			.catch(() => '');
 		const $e = ctx.cheerio.$load(showHtml);
@@ -162,7 +175,13 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 	const opts: CheerioLoadRequest = { ...requester, extraHeaders: { Referer: base.origin + '/' } };
 	for (const embed of embedUrls) {
 		if (/\.(?:mp4|m3u8)(?:\?|$)/i.test(embed)) {
-			sources.push({ fileName: (media as any).title, playlist: embed, language: 'en', format: embed.includes('.m3u8') ? 'm3u8' : 'mp4', xhr: { flags: ['CORS_BLOCKED'], headers: { Referer: 'https://web.wootly.ch/' } } });
+			sources.push({
+				fileName: (media as any).title,
+				playlist: embed,
+				language: 'en',
+				format: embed.includes('.m3u8') ? 'm3u8' : 'mp4',
+				xhr: { flags: ['CORS_BLOCKED'], headers: { Referer: 'https://web.wootly.ch/' } },
+			});
 			continue;
 		}
 		try {

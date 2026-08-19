@@ -1,4 +1,10 @@
-import type { ScrapeRequester, InternalMediaSource, ProviderContext, CheerioLoadRequest, SerieMedia } from 'grabit-engine';
+import type {
+	ScrapeRequester,
+	InternalMediaSource,
+	ProviderContext,
+	CheerioLoadRequest,
+	SerieMedia,
+} from 'grabit-engine';
 import { extractHubcloudStreams } from '../../../extractors/hubcloud';
 import { resolveToHubcloud, detectQuality } from '../../../extractors/hubchain';
 import { pickBestPost, titleTokens, getSeasonFromText } from '../../../extractors/postMatch';
@@ -28,7 +34,11 @@ export async function getLazyStreams(requester: ScrapeRequester, ctx: ProviderCo
 	}));
 }
 
-export async function resolveLazy(id: string, ctx: ProviderContext, requester: ScrapeRequester): Promise<InternalMediaSource | null> {
+export async function resolveLazy(
+	id: string,
+	ctx: ProviderContext,
+	requester: ScrapeRequester,
+): Promise<InternalMediaSource | null> {
 	let handle: LazyHandle;
 	try {
 		handle = JSON.parse(decodeURIComponent(id)) as LazyHandle;
@@ -56,21 +66,32 @@ async function searchPosts(url: URL, ctx: ProviderContext, pageOpt: CheerioLoadR
 	try {
 		const { $ } = await ctx.cheerio.load(url, pageOpt, ctx.xhr);
 		const posts: SearchPost[] = [];
-		$('.card-grid').children().each((_: number, element: any) => {
-			const title = $(element).find('.movie-card-title').text().trim();
-			const link = $(element).attr('href');
-			if (title && link) {
-				const postUrl = new URL(link, `${PROVIDER.config.baseUrl}/`);
-				posts.push({ title, link: `${postUrl.pathname}${postUrl.search}${postUrl.hash}`, image: $(element).find('img').attr('src') || '' });
-			}
-		});
+		$('.card-grid')
+			.children()
+			.each((_: number, element: any) => {
+				const title = $(element).find('.movie-card-title').text().trim();
+				const link = $(element).attr('href');
+				if (title && link) {
+					const postUrl = new URL(link, `${PROVIDER.config.baseUrl}/`);
+					posts.push({
+						title,
+						link: `${postUrl.pathname}${postUrl.search}${postUrl.hash}`,
+						image: $(element).find('img').attr('src') || '',
+					});
+				}
+			});
 		return posts;
 	} catch {
 		return [];
 	}
 }
 
-async function getCandidateLinks(link: string, requester: ScrapeRequester, ctx: ProviderContext, pageOpt: CheerioLoadRequest): Promise<Candidate[]> {
+async function getCandidateLinks(
+	link: string,
+	requester: ScrapeRequester,
+	ctx: ProviderContext,
+	pageOpt: CheerioLoadRequest,
+): Promise<Candidate[]> {
 	const { $ } = await ctx.cheerio.load(new URL(link, `${PROVIDER.config.baseUrl}/`), pageOpt, ctx.xhr);
 	const media = requester.media;
 	const candidates: Candidate[] = [];
@@ -83,20 +104,30 @@ async function getCandidateLinks(link: string, requester: ScrapeRequester, ctx: 
 			const season = getSeasonFromText(seasonText);
 			if (season != null && season !== wantSeason) return;
 			const groupQuality = detectQuality(seasonText);
-			$(element).find('.episode-download-item').each((__: number, item: any) => {
-				const fileTitle = $(item).find('.episode-file-title').text();
-				const info = `${$(item).find('.episode-file-info').text()} ${fileTitle}`.replace(/\s+/g, ' ').trim();
-				const epMatch = info.match(/episode[-\s]*(\d+)/i) || fileTitle.match(/s\d+\s*e\s*(\d+)/i);
-				if (!epMatch || Number(epMatch[1]) !== wantEpisode) return;
-				const href = $(item).find(".episode-links a:contains('HubCloud')").attr('href') || $(item).find('.episode-links a').first().attr('href');
-				if (href && isAllowedCandidate(href)) candidates.push({ quality: detectQuality(info) !== 'Unknown' ? detectQuality(info) : groupQuality, link: href, label: `E${wantEpisode}` });
-			});
+			$(element)
+				.find('.episode-download-item')
+				.each((__: number, item: any) => {
+					const fileTitle = $(item).find('.episode-file-title').text();
+					const info = `${$(item).find('.episode-file-info').text()} ${fileTitle}`.replace(/\s+/g, ' ').trim();
+					const epMatch = info.match(/episode[-\s]*(\d+)/i) || fileTitle.match(/s\d+\s*e\s*(\d+)/i);
+					if (!epMatch || Number(epMatch[1]) !== wantEpisode) return;
+					const href =
+						$(item).find(".episode-links a:contains('HubCloud')").attr('href') ||
+						$(item).find('.episode-links a').first().attr('href');
+					if (href && isAllowedCandidate(href))
+						candidates.push({
+							quality: detectQuality(info) !== 'Unknown' ? detectQuality(info) : groupQuality,
+							link: href,
+							label: `E${wantEpisode}`,
+						});
+				});
 		});
 	} else {
 		$('.download-item').each((_: number, element: any) => {
 			const info = $(element).find('.flex-1.text-left.font-semibold').text().trim();
 			const href = $(element).find(".grid.grid-cols-2.gap-2 a:contains('HubCloud')").attr('href');
-			if (href && isAllowedCandidate(href)) candidates.push({ quality: detectQuality(info), link: href, label: detectQuality(info) });
+			if (href && isAllowedCandidate(href))
+				candidates.push({ quality: detectQuality(info), link: href, label: detectQuality(info) });
 		});
 	}
 	const seen = new Set<string>();
@@ -106,7 +137,10 @@ async function getCandidateLinks(link: string, requester: ScrapeRequester, ctx: 
 function isAllowedCandidate(value: string): boolean {
 	try {
 		const url = new URL(value, PROVIDER.config.baseUrl);
-		return url.protocol === 'https:' && /hubcloud|hubdrive|gdflix|search-recover|\/archives\//i.test(url.hostname + url.pathname);
+		return (
+			url.protocol === 'https:' &&
+			/hubcloud|hubdrive|gdflix|search-recover|\/archives\//i.test(url.hostname + url.pathname)
+		);
 	} catch {
 		return false;
 	}

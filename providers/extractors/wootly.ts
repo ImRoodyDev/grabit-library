@@ -9,7 +9,13 @@ export async function extractWootlyStream(
 ): Promise<InternalMediaSource | null> {
 	const landing = await ctx.xhr.fetch(
 		embedURL,
-		{ method: 'GET', attachUserAgent: true, clean: true, useImpit: false, headers: { Referer: requestOpts.extraHeaders?.Referer ?? embedURL.origin + '/' } },
+		{
+			method: 'GET',
+			attachUserAgent: true,
+			clean: true,
+			useImpit: false,
+			headers: { Referer: requestOpts.extraHeaders?.Referer ?? embedURL.origin + '/' },
+		},
 		requestOpts,
 	);
 	const landingHtml = await landing.text();
@@ -21,7 +27,13 @@ export async function extractWootlyStream(
 	const iframeURL = new URL(iframeSrc, embedURL);
 	const iframeResponse = await ctx.xhr.fetch(
 		iframeURL,
-		{ method: 'GET', attachUserAgent: true, clean: true, useImpit: false, headers: { cookie: landingCookies, Referer: embedURL.href } },
+		{
+			method: 'GET',
+			attachUserAgent: true,
+			clean: true,
+			useImpit: false,
+			headers: { cookie: landingCookies, Referer: embedURL.href },
+		},
 		requestOpts,
 	);
 	const iframeCookies = joinCookies(landingCookies, createCookiesFromSet(iframeResponse.headers as any) || '');
