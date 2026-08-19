@@ -18,6 +18,11 @@ The signed master playlist is token-only (no Referer/UA needed) and carries mult
 audio tracks (verified Italian + English on Inception). Flag `CORS_BLOCKED`.
 **Tested:** movie (tmdb 27205) and series (Breaking Bad 1x1) both return a valid m3u8.
 
+Lazy support lists the API's embed URL as a self-contained handle and resolves the signed
+playlist only on play. The resolver accepts only URLs on `vixsrc.to`, preventing a tampered
+handle from becoming an SSRF fetch. A direct Inception lazy-list/resolve check returned one
+handle without a playlist and then a valid m3u8 source.
+
 ## HomeCine — `providers/media/es/homecine` — active, HTTP-first
 
 Spanish (Latino / Castellano) DooPlay site, no Cloudflare. Chain:
