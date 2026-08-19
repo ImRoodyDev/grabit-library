@@ -35,12 +35,13 @@ npx test-provider --scheme primewire --type serie --tmdb 1396 --season 1 --episo
 
 ### Provider layout
 
-Every provider lives in a folder under `providers/` and is split into up to four files:
+Every provider lives in a folder under `providers/` and is split into up to five files:
 
 - **`config.ts`** — the `ProviderConfig` (scheme, baseUrl, per-media-type `entries` endpoints, `mediaIds`, CORS flag), optional `TProviderSelectors` (`locators` — CSS selectors named `$results`, `$result_title`, etc.), and `export const PROVIDER = Provider.create(config)`.
-- **`stream.ts`** — `export async function getStreams(requester, ctx): Promise<InternalMediaSource[]>`.
+- **`stream.ts`** — `export async function getStreams(requester, ctx): Promise<InternalMediaSource[]>` (eager, fully-resolved sources).
+- **`lazy.ts`** — optional; lazy resolution kept separate from `stream.ts`: `export async function getLazyStreams(requester, ctx)` (returns cheap `lazy:{id}` handles, no `playlist`) and `export async function resolveLazy(id, ctx, requester)` (resolves one handle on play). See the **writing-lazy-sources** skill.
 - **`subtitle.ts`** — `export async function getSubtitles(requester, ctx): Promise<InternalSubtitleSource[]>`.
-- **`index.ts`** — the entry point; wires everything together with `defineProviderModule(PROVIDER, manifest.providers['<scheme>'], { getStreams, getSubtitles })`. This is the module the bundler builds and the engine loads.
+- **`index.ts`** — the entry point; wires everything together with `defineProviderModule(PROVIDER, manifest.providers['<scheme>'], { getStreams, getSubtitles /*, getLazyStreams, resolveLazy */ })`. This is the module the bundler builds and the engine loads.
 
 Providers are grouped by intent, and the folder path is the scheme's group prefix:
 

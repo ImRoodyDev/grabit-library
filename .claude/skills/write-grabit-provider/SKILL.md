@@ -35,9 +35,11 @@ browser before ruling out an app-level Referer/cookie/Origin/signed-URL 403.
 
 ## CONVENTIONS (must follow)
 - Files: `config.ts` (`ProviderConfig` + `export const PROVIDER = Provider.create(config)`),
-  `stream.ts` (`getStreams(requester, ctx): Promise<InternalMediaSource[]>`), `index.ts`
-  (`defineProviderModule(PROVIDER, manifest.providers['<scheme>'], { getStreams })`). Add the
-  **`manifest.json`** entry (`dir`, `language`, `active`, `supportedMediaTypes`, and **`env`**:
+  `stream.ts` (`getStreams(requester, ctx): Promise<InternalMediaSource[]>`), and — only when the
+  provider supports lazy resolution — `lazy.ts` (`getLazyStreams` + `resolveLazy`, see item 8);
+  `index.ts` wires them:
+  `defineProviderModule(PROVIDER, manifest.providers['<scheme>'], { getStreams, /* getLazyStreams, resolveLazy */ })`.
+  Add the **`manifest.json`** entry (`dir`, `language`, `active`, `supportedMediaTypes`, and **`env`**:
   `"node"` only if the provider calls `ctx.puppeteer`, otherwise `"universal"`).
 - **URLs come from the `entries` pattern — never hand-roll `new URL('/?s='+encodeURI(...))`.**
   Placeholders: `{title:form-uri}` (query, spaces→`+`), `{title:uri}` (path, spaces→`%20`),
@@ -84,9 +86,14 @@ browser before ruling out an app-level Referer/cookie/Origin/signed-URL 403.
   it is clicked into existence (cuevana reveals iframes on `.clili` click), read from browser-only
   state (xpass reads the signed url from the `performance` resource timeline), or genuinely
   network-only after you have followed every hop.
-- **Lazy sources** (item 8): return `{ ..., lazy:{ id } }` and export a
-  `resolveLazy(id, ctx, requester)` worker; the host resolves the final URL on play. Full contract,
-  self-contained-id rule, and server/client flow in the **writing-lazy-sources** skill.
+- **Lazy sources** (item 8): put lazy support in a **separate `lazy.ts`** file exporting
+  `getLazyStreams(requester, ctx)` (returns cheap `{ ..., lazy:{ id } }` handles, no `playlist`) and
+  `resolveLazy(id, ctx, requester)` (resolves one handle on play). `getStreams` stays eager in
+  `stream.ts`; pass any combination to `defineProviderModule`. The manager picks `getLazyStreams`
+  over `getStreams` when created with `lazy: true` (or via `manager.getLazyStreams()`), and resolves
+  a handle with `manager.resolveLazySource(scheme, id, req)`. Full contract, the self-contained-id
+  rule, the manager flag, and the server/main-server redirect flow are in the
+  **writing-lazy-sources** skill.
 - **Comments**: short and simple, **max 2 lines**, only where intent isn't obvious. No verbose
   blocks or heavy JSDoc, and no long dashes (em dashes) or divider lines inside code comments.
 
