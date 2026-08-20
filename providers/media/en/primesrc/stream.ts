@@ -52,6 +52,8 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 		return [];
 	}
 
+	ctx.log.debug(`[primesrc] servers returned: ${servers.map((s) => s.name).join(', ')}`);
+
 	// Prefer supported hosts; one key per host is enough.
 	const seenHost = new Set<string>();
 	const picks = servers.filter((s) => {

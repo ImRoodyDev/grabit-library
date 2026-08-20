@@ -1,5 +1,5 @@
 // Scraping
-npx test-provider --scheme goojara --media-file ./test/wrecking-crew.json 
+npx test-provider --scheme primesrc --media-file ./test/wrecking-crew.json 
 npx test-provider --scheme goojara  --media-file ./test/inception.json
 npx test-provider --scheme lamovie  --media-file ./test/stranger-things_s1ep1.json
 npx test-provider --scheme lamovie  --media-file ./test/supernatural_s1e1.json
