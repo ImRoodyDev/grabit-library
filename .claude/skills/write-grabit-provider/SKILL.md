@@ -52,6 +52,16 @@ browser before ruling out an app-level Referer/cookie/Origin/signed-URL 403.
 - **HTTP**: `ctx.xhr.fetch(url, { method, attachUserAgent:true, clean:true, headers, body? }, requester)`
   → raw `Response` (`.status`, `.headers.get()`, `.text()`, `.url`). Read `.text()` then
   `JSON.parse` so you can detect challenges. Cookies: `createCookiesFromSet(res.headers)` → forward.
+- **A non-2xx status does NOT mean an empty body — ALWAYS read it.** Sites routinely send the data
+  you need *with* an error status: a Cloudflare challenge page (403 + the "Just a moment" HTML that
+  carries the key/token for the next hop), an app-level error JSON, or a redirect/token payload.
+  ⚠️ `ctx.xhr.fetchResponse` / `handleResponse` **throw** an `HttpError` on any non-2xx and return
+  nothing — but the body is NOT lost: it is preserved on `HttpError.details` (parsed JSON, else raw
+  text) with the code on `.statusCode`. A `.catch(() => null)` around `fetchResponse` **discards that
+  body** and is the classic bug. So for any endpoint that may gate or error, prefer `ctx.xhr.fetch`
+  (raw `Response`) and read `.text()` **regardless of `.status`**, or catch the throw and inspect it:
+  `import { isHttpError } from 'grabit-engine'` → `if (isHttpError(e)) { const body = e.details; /* … */ }`.
+  Only decide "nothing came back" *after* you have looked at the body.
 - **Cheerio**: `ctx.cheerio.$load(html)` / `ctx.cheerio.load(url, requestOpt, ctx.xhr)`.
 - **Return** `InternalMediaSource[]` `{ fileName, playlist, language, format?, xhr:{ flags, headers } }`;
   `[]` (never throw) for unsupported types / no results. Dispatch known embed hosts
@@ -202,6 +212,11 @@ where the source/player is — a `<script>` element holding data, or a **player 
    (signed url read from the `performance` resource timeline).
 
 ### Phase 3 — A 403/challenge is NOT automatically Cloudflare. DIAGNOSE.
+**Read the error-status body first — it is what tells you which case you are in.** The 403/401/5xx
+response almost always carries a body; that body (CF challenge HTML vs a short app-error JSON) is the
+evidence. If you used `fetchResponse`, the body is on the thrown `HttpError.details`, not gone — pull
+it out (`isHttpError(e)`) or refetch with `ctx.xhr.fetch` and read `.text()`. Never diagnose from the
+status code alone.
 - **Real CF interstitial** — a full HTML page whose `<title>` is `Just a moment…`, or contains
   `__cf_chl`, `cf_chl_opt`, `cf-browser-verification`. → genuine gate → Phase 2 step 4 (solve).
   - ⚠️ The benign `/cdn-cgi/challenge-platform/.../jsd/...` script is injected into **normal**
@@ -256,8 +271,10 @@ async function viaSolve(url, base, requester, ctx) {
 }
 async function viaXhr(url, base, requester, ctx) {
   const res = await ctx.xhr.fetch(url, { method:'GET', attachUserAgent:true, clean:true, headers:{ Referer: base.origin + '/' } }, requester);
-  const html = await res.text();
-  if (res.status === 403 || isCloudflare(html)) return { cfBlocked: true };
+  const html = await res.text();               // read the body even on a non-2xx status
+  // A 403 body is not empty: it may be the CF challenge (mine key/token here) or an app error.
+  if (isCloudflare(html)) return { cfBlocked: true };
+  if (res.status >= 400) return { sources: [], cfBlocked: false }; // app error — inspect `html` before giving up
   const cookie = createCookiesFromSet(res.headers as any) || '';
   const apiHeaders = { Referer: url.href, 'x-requested-with': 'XMLHttpRequest', ...(cookie ? { cookie } : {}) };
   // case 1: URL in body → extract. case 2: packed <script> → extractEvalCode/unpackV2/extractVariableValue.
