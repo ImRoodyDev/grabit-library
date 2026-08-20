@@ -57,12 +57,14 @@ The engine decides eager vs lazy with `GrabitManager.create({ ..., lazy: true })
 
 - `lazy: false` (default) — `manager.getStreams()` calls each provider's **`getStreams`**.
 - `lazy: true` — `manager.getStreams()` calls each provider's **`getLazyStreams`**, falling back to
-  `getStreams` when a provider has no lazy worker. `manager.getLazyStreams()` forces this regardless
-  of the flag. Either way the host resolves a handle with `manager.resolveLazySource(scheme, id, req)`.
+  `getStreams` when a provider has no lazy worker (`lazyFallbackToStreams` defaults to `true`). Pass
+  `lazyFallbackToStreams: false` for **strict lazy mode**, where eager-only providers are skipped
+  entirely. `manager.getLazyStreams()` forces lazy regardless of the flag. Either way the host
+  resolves a handle with `manager.resolveLazySource(scheme, id, req)`.
 
 So a provider that implements `getLazyStreams` is only exercised when the host runs the manager in
 lazy mode (or calls `getLazyStreams` explicitly). Always keep a working `getStreams` too unless the
-provider is lazy-only by design.
+provider is lazy-only by design — in strict lazy mode an eager-only provider contributes nothing.
 
 ## THE ONE RULE: the id must be self-contained
 

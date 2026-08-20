@@ -21,7 +21,7 @@
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"grabit-engine": "^1.2.0-alpha.16",
+		"grabit-engine": "^1.2.0-alpha.17",
 		"puppeteer-real-browser": "^1.4.4"
 	}
 }
