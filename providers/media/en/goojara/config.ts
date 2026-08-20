@@ -8,10 +8,18 @@ import { type ProviderConfig, Provider, TProviderSelectors } from 'grabit-engine
  */
 export const config: ProviderConfig = {
 	scheme: 'goojara',
-	name: 'goojara',
+	name: 'Goojara',
 	language: 'en',
 	baseUrl: 'https://ww1.goojara.to/',
-	entries: {},
+	entries: {
+		// The servers API (JSON). Each server carries a `key` resolved via /api/v1/l.
+		movie: {
+			endpoint: '',
+		},
+		serie: {
+			endpoint: '',
+		},
+	},
 	contentAreCORSProtected: true,
 };
 

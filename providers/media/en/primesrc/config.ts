@@ -6,7 +6,7 @@ import { type ProviderConfig, Provider, TProviderSelectors } from 'grabit-engine
  */
 export const config: ProviderConfig = {
 	scheme: 'primesrc',
-	name: 'primesrc',
+	name: 'Primesrc',
 	language: 'en',
 	baseUrl: 'https://primesrc.me/',
 	entries: {
