@@ -13111,7 +13111,7 @@ var manifest_default = {
     primesrc: {
       name: "Primesrc",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
       env: "universal",

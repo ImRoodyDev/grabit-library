@@ -13380,7 +13380,7 @@ var manifest_default = {
     primesrc: {
       name: "Primesrc",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
       env: "universal",
@@ -13647,10 +13647,18 @@ var manifest_default = {
 // providers/media/en/goojara/config.ts
 var config = {
   scheme: "goojara",
-  name: "goojara",
+  name: "Goojara",
   language: "en",
   baseUrl: "https://ww1.goojara.to/",
-  entries: {},
+  entries: {
+    // The servers API (JSON). Each server carries a `key` resolved via /api/v1/l.
+    movie: {
+      endpoint: ""
+    },
+    serie: {
+      endpoint: ""
+    }
+  },
   contentAreCORSProtected: true
 };
 var PROVIDER = Provider.create(config);

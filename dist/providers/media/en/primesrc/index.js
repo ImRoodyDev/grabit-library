@@ -12776,7 +12776,7 @@ function _validateMediaSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x57) {
+      return function (_x73) {
         return _ref5.apply(this, arguments);
       };
     }()));
@@ -12800,7 +12800,7 @@ function _validateSubtitleSources() {
         }, requester);
         return ok ? source : null;
       });
-      return function (_x58) {
+      return function (_x74) {
         return _ref6.apply(this, arguments);
       };
     }()));
@@ -13380,7 +13380,7 @@ var manifest_default = {
     primesrc: {
       name: "Primesrc",
       version: "1.0.0",
-      active: false,
+      active: true,
       language: "en",
       type: "media",
       env: "universal",
@@ -13647,7 +13647,7 @@ var manifest_default = {
 // providers/media/en/primesrc/config.ts
 var config = {
   scheme: "primesrc",
-  name: "primesrc",
+  name: "Primesrc",
   language: "en",
   baseUrl: "https://primesrc.me/",
   entries: {
@@ -14217,7 +14217,7 @@ function extractValue(script, name) {
 // providers/extractors/embedDispatch.ts
 function dispatchEmbed(_x46, _x47, _x48, _x49) {
   return _dispatchEmbed.apply(this, arguments);
-} // providers/media/en/primesrc/stream.ts
+} // providers/media/en/primesrc/api.ts
 function _dispatchEmbed() {
   _dispatchEmbed = _asyncToGenerator(function* (embed, opts, ctx, language) {
     let url;
@@ -14261,24 +14261,108 @@ function _dispatchEmbed() {
   });
   return _dispatchEmbed.apply(this, arguments);
 }
+function createCookieJar() {
+  let cookies = "";
+  return {
+    header: () => cookies,
+    bank: newCookies => {
+      if (newCookies) cookies = joinCookies(cookies, newCookies);
+    },
+    bankSetCookie: headers => {
+      const set = createCookiesFromSet(headers);
+      if (set) cookies = joinCookies(cookies, set);
+    }
+  };
+}
 var SUPPORTED = /filemoon|moon|streamwish|filelions|lions|swish|wish|mixdrop|dood|supervideo|dropload/i;
 var MAX_EMBEDS = 5;
-function getStreams(_x50, _x51) {
-  return _getStreams.apply(this, arguments);
+function isCloudflareChallenge(html) {
+  return /<title>\s*just a moment|__cf_chl_(?:f_)?tk|cf-browser-verification|cf_chl_opt/i.test(html);
 }
-function _getStreams() {
-  _getStreams = _asyncToGenerator(function* (requester, ctx) {
-    if (requester.media.type === "channel") return [];
+function decodeEntities(s) {
+  return s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#0?34;/g, '"').replace(/&#0?39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
+function parseJson(body) {
+  if (!body) return null;
+  try {
+    return JSON.parse(body);
+  } catch {}
+  const pre = body.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i)?.[1];
+  if (pre) {
+    try {
+      return JSON.parse(decodeEntities(pre));
+    } catch {}
+  }
+  return null;
+}
+function findUrl(value) {
+  if (typeof value === "string") return /^https?:\/\//.test(value) ? value : null;
+  if (value && typeof value === "object") for (const key of Object.keys(value)) {
+    const url = findUrl(value[key]);
+    if (url) return url;
+  }
+  return null;
+}
+function urlFromBody(body) {
+  const json = parseJson(body);
+  if (json) {
+    const u = findUrl(json);
+    if (u) return u;
+  }
+  for (const raw of body.match(/https?:\/\/[^\s"'<>\\]+/g) ?? []) {
+    const u = raw.replace(/\\u0026/gi, "&");
+    if (/primesrc\.me|challenges\.cloudflare|cdn-cgi/i.test(u)) continue;
+    return u;
+  }
+  return null;
+}
+function fetchApiBody(_x50, _x51, _x52, _x53) {
+  return _fetchApiBody.apply(this, arguments);
+}
+function _fetchApiBody() {
+  _fetchApiBody = _asyncToGenerator(function* (url, headers, requester, ctx) {
+    const res = yield ctx.xhr.fetch(url, {
+      method: "GET",
+      clean: true,
+      headers
+    }, requester).catch(() => null);
+    const body = res ? yield res.text().catch(() => "") : "";
+    if (body && !isCloudflareChallenge(body)) return body;
+    try {
+      const solved = yield ctx.solveChallenge(url, requester, {
+        waitForCookie: "cf_clearance",
+        headers
+      });
+      return solved.html ?? body;
+    } catch (error) {
+      ctx.log.debug(`[primesrc] solve fallback failed for ${url.pathname}: ${error.message}`);
+      return body;
+    }
+  });
+  return _fetchApiBody.apply(this, arguments);
+}
+function primeApi(_x54, _x55) {
+  return _primeApi.apply(this, arguments);
+}
+function _primeApi() {
+  _primeApi = _asyncToGenerator(function* (requester, ctx) {
     const base = new URL(PROVIDER.config.baseUrl);
-    const apiPath = (() => {
-      const u = PROVIDER.createResourceURL(requester);
-      return u.pathname + u.search;
-    })();
+    const apiUrl = PROVIDER.createResourceURL(requester);
+    const imdb = apiUrl.searchParams.get("imdb") ?? "";
+    const kind = apiUrl.searchParams.get("type") === "tv" ? "tv" : "movie";
+    const season = apiUrl.searchParams.get("season");
+    const episode = apiUrl.searchParams.get("episode");
+    const referer = new URL(`/embed/${kind}`, base);
+    if (imdb) referer.searchParams.set("imdb", imdb);
+    if (kind === "tv" && season && episode) {
+      referer.searchParams.set("season", season);
+      referer.searchParams.set("episode", episode);
+    }
     const solved = yield ctx.solveChallenge(base, requester, {
       waitForCookie: "cf_clearance"
     });
-    const apiHeaders = {
-      Referer: base.origin + "/",
+    const headers = {
+      Referer: referer.href,
       "x-requested-with": "XMLHttpRequest",
       ...(solved.cookies ? {
         cookie: solved.cookies
@@ -14287,43 +14371,115 @@ function _getStreams() {
         "User-Agent": solved.userAgent
       } : {})
     };
-    const data = yield ctx.xhr.fetchResponse(new URL(apiPath, base), {
-      method: "GET",
-      clean: true,
-      headers: apiHeaders
-    }, requester).catch(error => {
-      ctx.log.warn(`[primesrc] Server list failed: ${error.message}`);
-      return null;
-    });
-    const servers = Array.isArray(data?.servers) ? data.servers : [];
+    ctx.log.debug(`[primesrc] API context: ${Object.entries(headers).map(([k, v]) => `${k}: ${v}`).join("\n")}`);
+    return {
+      base,
+      apiUrl,
+      headers,
+      jar: createCookieJar()
+    };
+  });
+  return _primeApi.apply(this, arguments);
+}
+function getServerList(_x56, _x57, _x58, _x59) {
+  return _getServerList.apply(this, arguments);
+}
+function _getServerList() {
+  _getServerList = _asyncToGenerator(function* (apiUrl, headers, requester, ctx) {
+    const body = yield fetchApiBody(apiUrl, headers, requester, ctx);
+    const json = parseJson(body);
+    const servers = Array.isArray(json?.servers) ? json.servers : [];
     if (!servers.length) {
       ctx.log.warn("[primesrc] No servers returned by the API.");
       return [];
     }
+    ctx.log.debug(`[primesrc] servers returned: ${servers.map(s => s.name).join(", ")}`);
     const seenHost = /* @__PURE__ */new Set();
-    const picks = servers.filter(s => {
-      if (!s?.key || !SUPPORTED.test(s.name || "")) return false;
-      const h2 = (s.name || "").toLowerCase();
-      if (seenHost.has(h2)) return false;
-      seenHost.add(h2);
-      return true;
+    const picks = [];
+    for (const s of servers) {
+      if (!s?.key || !SUPPORTED.test(s.name || "")) continue;
+      const host = String(s.name).toLowerCase();
+      if (seenHost.has(host)) continue;
+      seenHost.add(host);
+      picks.push({
+        name: s.name,
+        key: s.key
+      });
+      if (picks.length >= MAX_EMBEDS) break;
+    }
+    return picks;
+  });
+  return _getServerList.apply(this, arguments);
+}
+function resolveEmbed(_x60, _x61, _x62, _x63, _x64, _x65) {
+  return _resolveEmbed.apply(this, arguments);
+} // providers/media/en/primesrc/stream.ts
+function _resolveEmbed() {
+  _resolveEmbed = _asyncToGenerator(function* (key, base, headers, jar, requester, ctx) {
+    const url = new URL(`/api/v1/l?key=${encodeURIComponent(key)}`, base);
+    const resolveHeaders = {
+      ...(headers["User-Agent"] ? {
+        "User-Agent": headers["User-Agent"]
+      } : {})
+    };
+    const banked = jar.header();
+    if (banked) {
+      ctx.log.debug(`[primesrc] Reusing embed clearance for key ${key}: ${banked}`);
+      const res = yield ctx.xhr.fetch(url, {
+        method: "GET",
+        clean: true,
+        headers: {
+          ...resolveHeaders,
+          cookie: banked
+        }
+      }, requester).catch(() => null);
+      if (res) jar.bankSetCookie(res.headers);
+      const body = res ? yield res.text().catch(() => "") : "";
+      if (body && !isCloudflareChallenge(body)) {
+        ctx.log.info(`[primesrc] Embed clearance worked for key ${key}.`);
+        const link = urlFromBody(body);
+        if (link) return link;
+      }
+    }
+    const solved = yield ctx.solveChallenge(url, requester, {
+      headers: resolveHeaders
     });
+    if (solved.cookies) {
+      ctx.log.debug(`[primesrc] Solved embed challenge for key ${key}: ${solved.cookies}`);
+      jar.bank(solved.cookies);
+    }
+    ctx.log.debug(`[primesrc] Banked embed clearance: ${solved.cookies ? "yes" : "none"}`);
+    return urlFromBody(solved.html);
+  });
+  return _resolveEmbed.apply(this, arguments);
+}
+function getStreams(_x66, _x67) {
+  return _getStreams.apply(this, arguments);
+} // providers/media/en/primesrc/lazy.ts
+function _getStreams() {
+  _getStreams = _asyncToGenerator(function* (requester, ctx) {
+    if (requester.media.type === "channel") return [];
+    const {
+      base,
+      apiUrl,
+      headers,
+      jar
+    } = yield primeApi(requester, ctx);
+    const picks = yield getServerList(apiUrl, headers, requester, ctx);
+    if (!picks.length) return [];
+    ctx.log.info(`[primesrc] Resolving ${picks.length} embed key(s): ${picks.map(s => s.name).join(", ")}`);
     const embeds = [];
-    for (const s of picks.slice(0, MAX_EMBEDS)) {
+    for (const s of picks) {
       try {
-        const link = findUrl(yield ctx.xhr.fetchResponse(new URL(`/api/v1/l?key=${encodeURIComponent(s.key)}`, base), {
-          method: "GET",
-          clean: true,
-          headers: apiHeaders
-        }, requester));
-        if (link) embeds.push({
+        const url = yield resolveEmbed(s.key, base, headers, jar, requester, ctx);
+        if (url) embeds.push({
           name: s.name,
-          url: link
+          url
         });
       } catch {}
     }
     if (!embeds.length) {
-      ctx.log.warn(`[primesrc] ${servers.length} server(s) but no embed resolved.`);
+      ctx.log.warn(`[primesrc] ${picks.length} server(s) but no embed resolved.`);
       return [];
     }
     ctx.log.info(`[primesrc] Resolved ${embeds.length} embed(s): ${embeds.map(e => e.name).join(", ")}`);
@@ -14347,62 +14503,23 @@ function _getStreams() {
   });
   return _getStreams.apply(this, arguments);
 }
-function findUrl(v) {
-  if (typeof v === "string") return /^https?:\/\//.test(v) ? v : null;
-  if (v && typeof v === "object") for (const k of Object.keys(v)) {
-    const u = findUrl(v[k]);
-    if (u) return u;
-  }
-  return null;
-}
-
-// providers/media/en/primesrc/lazy.ts
-var SUPPORTED2 = /filemoon|moon|streamwish|filelions|lions|swish|wish|mixdrop|dood|supervideo|dropload/i;
-var MAX_EMBEDS2 = 5;
-function getLazyStreams(_x52, _x53) {
+function getLazyStreams(_x68, _x69) {
   return _getLazyStreams.apply(this, arguments);
 }
 function _getLazyStreams() {
   _getLazyStreams = _asyncToGenerator(function* (requester, ctx) {
     if (requester.media.type === "channel") return [];
-    const base = new URL(PROVIDER.config.baseUrl);
-    const apiUrl = PROVIDER.createResourceURL(requester);
-    const solved = yield ctx.solveChallenge(base, requester, {
-      waitForCookie: "cf_clearance"
-    });
-    const apiHeaders = {
-      Referer: base.origin + "/",
-      "x-requested-with": "XMLHttpRequest",
-      ...(solved.cookies ? {
-        cookie: solved.cookies
-      } : {}),
-      ...(solved.userAgent ? {
-        "User-Agent": solved.userAgent
-      } : {})
-    };
-    const data = yield ctx.xhr.fetchResponse(apiUrl, {
-      method: "GET",
-      clean: true,
-      headers: apiHeaders
-    }, requester).catch(() => null);
-    const servers = Array.isArray(data?.servers) ? data.servers : [];
-    const seenHost = /* @__PURE__ */new Set();
-    const picks = servers.filter(server => {
-      if (!server?.key || !SUPPORTED2.test(server.name || "")) return false;
-      const host = String(server.name).toLowerCase();
-      if (seenHost.has(host)) return false;
-      seenHost.add(host);
-      return true;
-    });
+    const {
+      base,
+      apiUrl,
+      headers,
+      jar
+    } = yield primeApi(requester, ctx);
+    const picks = yield getServerList(apiUrl, headers, requester, ctx);
     const handles = [];
-    for (const server of picks.slice(0, MAX_EMBEDS2)) {
+    for (const server of picks) {
       try {
-        const resolved = yield ctx.xhr.fetchResponse(new URL(`/api/v1/l?key=${encodeURIComponent(server.key)}`, base), {
-          method: "GET",
-          clean: true,
-          headers: apiHeaders
-        }, requester);
-        const url = findUrl2(resolved);
+        const url = yield resolveEmbed(server.key, base, headers, jar, requester, ctx);
         if (url && isSupportedEmbed(url)) handles.push({
           name: server.name,
           url
@@ -14424,7 +14541,7 @@ function _getLazyStreams() {
   });
   return _getLazyStreams.apply(this, arguments);
 }
-function resolveLazy(_x54, _x55, _x56) {
+function resolveLazy(_x70, _x71, _x72) {
   return _resolveLazy.apply(this, arguments);
 }
 function _resolveLazy() {
@@ -14450,20 +14567,10 @@ function _resolveLazy() {
 function isSupportedEmbed(url) {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" && SUPPORTED2.test(parsed.hostname);
+    return parsed.protocol === "https:" && SUPPORTED.test(parsed.hostname);
   } catch {
     return false;
   }
-}
-function findUrl2(value) {
-  if (typeof value === "string") return /^https?:\/\//.test(value) ? value : null;
-  if (value && typeof value === "object") {
-    for (const key of Object.keys(value)) {
-      const url = findUrl2(value[key]);
-      if (url) return url;
-    }
-  }
-  return null;
 }
 
 // providers/media/en/primesrc/index.ts
