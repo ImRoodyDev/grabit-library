@@ -37,12 +37,17 @@ export const PROVIDER = Provider.create(config);
 function readKeys(): string[] {
 	const g = globalThis as { __grabitEnv?: Record<string, string | undefined> };
 	const raw =
-		g.__grabitEnv?.WYZIE_SUBS_KEYS ??
-		(typeof process !== 'undefined' ? process.env?.WYZIE_SUBS_KEYS : undefined);
-	return raw?.split(',').map((k) => k.trim()).filter(Boolean) ?? [''];
+		g.__grabitEnv?.WYZIE_SUBS_KEYS ?? (typeof process !== 'undefined' ? process.env?.WYZIE_SUBS_KEYS : undefined);
+	return (
+		raw
+			?.split(',')
+			.map((k) => k.trim())
+			.filter(Boolean) ?? ['']
+	);
 }
 
 export function getKey(): string {
 	const keys = readKeys();
+	console.log('Wyziesubs keys:', keys);
 	return (keys[Math.floor(Math.random() * keys.length)] || keys[0]) as string;
 }
