@@ -48,6 +48,5 @@ function readKeys(): string[] {
 
 export function getKey(): string {
 	const keys = readKeys();
-	console.log('Wyziesubs keys:', keys);
 	return (keys[Math.floor(Math.random() * keys.length)] || keys[0]) as string;
 }

@@ -1750,7 +1750,6 @@ function readKeys() {
 }
 function getKey() {
   const keys = readKeys();
-  console.log("Wyziesubs keys:", keys);
   return keys[Math.floor(Math.random() * keys.length)] || keys[0];
 }
 
