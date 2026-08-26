@@ -1743,9 +1743,14 @@ var config = {
   contentAreCORSProtected: true
 };
 var PROVIDER = Provider.create(config);
-var API_KEYS = process.env.WYZIE_SUBS_KEYS?.split(",") ?? [""];
+function readKeys() {
+  const g = globalThis;
+  const raw = g.__grabitEnv?.WYZIE_SUBS_KEYS ?? (typeof process !== "undefined" ? process.env?.WYZIE_SUBS_KEYS : void 0);
+  return raw?.split(",").map(k => k.trim()).filter(Boolean) ?? [""];
+}
 function getKey() {
-  return API_KEYS[Math.floor(Math.random() * API_KEYS.length)] || API_KEYS[0];
+  const keys = readKeys();
+  return keys[Math.floor(Math.random() * keys.length)] || keys[0];
 }
 
 // providers/subtitle/wyziesubs/subtitle.ts

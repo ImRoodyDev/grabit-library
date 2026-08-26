@@ -31,8 +31,18 @@ export const locators: TProviderSelectors = {
 
 export const PROVIDER = Provider.create(config);
 
-const API_KEYS = process.env.WYZIE_SUBS_KEYS?.split(',') ?? [''];
+// Read keys lazily. In RN the bundle is eval'd outside Metro so process.env is
+// empty; the host app supplies keys via setupGrabitGlobals({ env }) -> __grabitEnv.
+// process.env is the Node fallback (test-provider loads .env).
+function readKeys(): string[] {
+	const g = globalThis as { __grabitEnv?: Record<string, string | undefined> };
+	const raw =
+		g.__grabitEnv?.WYZIE_SUBS_KEYS ??
+		(typeof process !== 'undefined' ? process.env?.WYZIE_SUBS_KEYS : undefined);
+	return raw?.split(',').map((k) => k.trim()).filter(Boolean) ?? [''];
+}
 
 export function getKey(): string {
-	return (API_KEYS[Math.floor(Math.random() * API_KEYS.length)] || API_KEYS[0]) as string;
+	const keys = readKeys();
+	return (keys[Math.floor(Math.random() * keys.length)] || keys[0]) as string;
 }
