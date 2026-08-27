@@ -33,9 +33,7 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 	// The search API tags series as "Shows".
 	const wantType = media.type === 'movie' ? 'Movie' : 'Shows';
 	const seasonEp =
-		media.type === 'serie'
-			? { season: (media as SerieMedia).season, episode: (media as SerieMedia).episode }
-			: null;
+		media.type === 'serie' ? { season: (media as SerieMedia).season, episode: (media as SerieMedia).episode } : null;
 
 	const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 	const want = titles.map(norm);
@@ -48,6 +46,7 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 		...(solved.userAgent ? { 'User-Agent': solved.userAgent } : {}),
 	};
 	const ajaxHeaders = { ...headers, 'x-requested-with': 'XMLHttpRequest' };
+	ctx.log.info('[nepu] Ajax headers:', ajaxHeaders);
 
 	// 1. Search -> the watch/episode url.
 	let found: { name: string; videoUrl: string } | null = null;
@@ -109,7 +108,8 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 
 	// 4. Prefer the plain manifest: the opaque one's segments need the page's custom decoder.
 	const manifest =
-		embedHtml.match(/plainManifestUrl\s*=\s*"([^"]+)"/)?.[1] ?? embedHtml.match(/opaqueManifestUrl\s*=\s*"([^"]+)"/)?.[1];
+		embedHtml.match(/plainManifestUrl\s*=\s*"([^"]+)"/)?.[1] ??
+		embedHtml.match(/opaqueManifestUrl\s*=\s*"([^"]+)"/)?.[1];
 	if (!manifest) {
 		ctx.log.warn('[nepu] No manifest URL in the embed response.');
 		return [];
