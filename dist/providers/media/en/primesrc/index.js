@@ -2843,6 +2843,7 @@ function _resolveEmbed() {
         const link = urlFromBody(body);
         if (link) return link;
       }
+      ctx.log.debug(`[primesrc] Embed clearance failed for key ${key}, falling back to CF-solve.`);
     }
     const solved = yield ctx.solveChallenge(url, requester, {
       headers: resolveHeaders
@@ -2879,6 +2880,7 @@ function _getStreams() {
           name: s.name,
           url
         });
+        ctx.log.debug(`[primesrc] Resolved embed for ${s.name}: ${url ?? "null"}`);
       } catch {}
     }
     if (!embeds.length) {

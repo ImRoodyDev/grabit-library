@@ -220,6 +220,8 @@ export async function resolveEmbed(
 			const link = urlFromBody(body);
 			if (link) return link;
 		}
+
+		ctx.log.debug(`[primesrc] Embed clearance failed for key ${key}, falling back to CF-solve.`);
 	}
 
 	// Slow path: solve the endpoint's challenge, then bank its cookie for the next keys.

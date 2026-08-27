@@ -33,6 +33,7 @@ export async function getStreams(requester: ScrapeRequester, ctx: ProviderContex
 		try {
 			const url = await resolveEmbed(s.key, base, headers, jar, requester, ctx);
 			if (url) embeds.push({ name: s.name, url });
+			ctx.log.debug(`[primesrc] Resolved embed for ${s.name}: ${url ?? 'null'}`);
 		} catch {
 			/* skip a bad key */
 		}
