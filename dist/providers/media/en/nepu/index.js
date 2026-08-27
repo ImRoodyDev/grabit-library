@@ -1777,6 +1777,7 @@ function _getStreams() {
       ...headers,
       "x-requested-with": "XMLHttpRequest"
     };
+    ctx.log.info("[nepu] Ajax headers:", ajaxHeaders);
     let found = null;
     for (const path of searchPaths) {
       const data = yield ctx.xhr.fetchResponse(new URL(path, base), {
